@@ -358,7 +358,7 @@ const SidebarContent = ({
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">Folders</h3>
-            <button onClick={() => setIsAddingFolder(true)} className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wider">+ New Folder</button>
+            <button onClick={() => setIsAddingFolder(true)} className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wider p-2 -mr-2">+ New Folder</button>
           </div>
 
           {isAddingFolder && (
@@ -366,6 +366,7 @@ const SidebarContent = ({
               <input 
                 autoFocus
                 value={newFolderName}
+                maxLength={30}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                 placeholder="Folder name..."
@@ -419,7 +420,7 @@ const SidebarContent = ({
                         ) : (
                           <button 
                             onClick={(e) => { e.stopPropagation(); setFolderToDelete(f.id); }}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/20 rounded transition-all"
+                            className="p-3 md:p-1 hover:bg-white/20 rounded transition-all"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -479,7 +480,7 @@ const SidebarContent = ({
                             toast.success("Sentence deleted");
                           });
                         }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
                         title="Delete Sentence"
                       >
                         <Trash2 size={14} />
@@ -492,7 +493,7 @@ const SidebarContent = ({
                           setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
                           toast.success("Removed from history");
                         }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
                         title="Remove from History"
                       >
                         <Trash2 size={14} />
@@ -677,7 +678,7 @@ function App() {
   }, [user, folders, flashcards]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('lingua_flow_recent_analyses');
+    const saved = localStorage.getItem('hanzi_flow_recent_analyses_v4');
     if (saved) {
       try {
         setRecentAnalyses(JSON.parse(saved));
@@ -688,12 +689,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('lingua_flow_recent_analyses', JSON.stringify(recentAnalyses.slice(0, 10)));
+    localStorage.setItem('hanzi_flow_recent_analyses_v4', JSON.stringify(recentAnalyses.slice(0, 10)));
   }, [recentAnalyses]);
 
   const handleAnalyze = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!inputText.trim() || isAnalyzing) return;
+    
+    // Check word count to prevent spamming/huge requests
+    const wordCount = inputText.trim().split(/\s+/).length;
+    if (wordCount > 20) {
+      toast.error("Please limit your text to 20 words or less.");
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysis(null);
     setViewMode('analysis');
@@ -762,7 +771,7 @@ function App() {
         back: analysis.translatedText,
         pinyin: analysis.pinyin || '',
         tokens: analysis.tokens || null,
-        description: analysis.explanation,
+        description: `${analysis.grammar}\n\n---\n\n${analysis.context}`,
         userId: user.uid,
         createdAt: serverTimestamp()
       });
@@ -816,6 +825,12 @@ function App() {
 
   const handleCreateFolder = async () => {
     if (!user || !newFolderName.trim()) return;
+    
+    if (newFolderName.trim().length > 30) {
+      toast.error("Folder name must be 30 characters or less.");
+      return;
+    }
+    
     try {
       await addDoc(collection(db, 'folders'), {
         name: newFolderName,
@@ -982,8 +997,8 @@ return (
               className="lg:hidden fixed inset-y-0 left-0 w-[280px] bg-white dark:bg-zinc-900 z-50 flex flex-col shadow-2xl border-r border-zinc-200 dark:border-zinc-800"
             >
               <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-                <h1 className="text-lg font-serif font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">HanziFlow</h1>
-                <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
+                <h1 className="text-lg font-serif font-bold text-rose-500 dark:text-rose-400">HanziFlow</h1>
+                <button onClick={() => setIsSidebarOpen(false)} className="p-3 -mr-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
                   <X size={20} />
                 </button>
               </div>
@@ -1021,11 +1036,11 @@ return (
           <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1.5 md:p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="p-3 md:p-2 -ml-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
             >
               <Menu size={18} className="text-zinc-600 dark:text-zinc-400" />
             </button>
-            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">HanziFlow</h1>
+            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">HanziFlow</h1>
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
@@ -1043,7 +1058,7 @@ return (
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-4 md:p-12">
+          <div className="max-w-6xl mx-auto p-4 md:p-8">
             <AnimatePresence mode="wait">
               {viewMode === 'analysis' ? (
                 <motion.div 
@@ -1059,8 +1074,9 @@ return (
                       <input 
                         type="text"
                         value={inputText}
+                        maxLength={300}
                         onChange={(e) => setInputText(e.target.value)}
-                        placeholder="Paste Chinese or English text..."
+                        placeholder="Paste Chinese or English text (max 20 words)..."
                         className="w-full h-14 md:h-20 pl-6 md:pl-8 pr-16 md:pr-20 bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl shadow-xl shadow-indigo-500/5 focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-0 transition-all text-base md:text-xl font-serif dark:text-white"
                       />
                       <button 
@@ -1109,7 +1125,7 @@ return (
                              <button 
                                onClick={handleSave} 
                                className={cn(
-                                 "flex items-center gap-1.5 md:gap-2 text-[10px] md:text-sm font-bold transition-all px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl",
+                                 "flex items-center gap-1.5 md:gap-2 text-[10px] md:text-sm font-bold transition-all px-4 md:px-4 py-3 md:py-2 rounded-lg md:rounded-xl",
                                  isCurrentAnalysisSaved 
                                    ? "text-green-600 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
                                    : "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
@@ -1177,48 +1193,59 @@ return (
                          </div>
                        </div>
 
-                      <div className="space-y-4">
-                        <h3 className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 px-1">Breakdown</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                          {analysis.breakdown.map((item, idx) => {
-                            const isSaved = flashcards.some(c => 
-                              c.folderId === (activeFolderId || folders.find(f => f.isDefault)?.id) && 
-                              c.front === item.word
-                            );
-                            return (
-                              <div key={idx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl md:rounded-2xl p-4 md:p-6 hover:border-indigo-500 transition-colors relative group shadow-sm">
-                                <div className="flex justify-between items-start mb-3 md:mb-4">
-                                  <div className="flex items-baseline gap-2 md:gap-3">
-                                    <span className="text-xl md:text-3xl font-serif font-bold text-zinc-900 dark:text-white">{item.word}</span>
-                                    {item.pinyin && <span className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400">{item.pinyin}</span>}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
+                        <div className="lg:col-span-2 space-y-4">
+                          <h3 className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 px-1">Breakdown</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                            {analysis.breakdown.map((item, idx) => {
+                              const isSaved = flashcards.some(c => 
+                                c.folderId === (activeFolderId || folders.find(f => f.isDefault)?.id) && 
+                                c.front === item.word
+                              );
+                              return (
+                                <div key={idx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl md:rounded-2xl p-4 md:p-6 hover:border-indigo-500 transition-colors relative group shadow-sm">
+                                  <div className="flex justify-between items-start mb-3 md:mb-4">
+                                    <div className="flex items-baseline gap-2 md:gap-3">
+                                      <span className="text-xl md:text-3xl font-serif font-bold text-zinc-900 dark:text-white">{item.word}</span>
+                                      {item.pinyin && <span className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400">{item.pinyin}</span>}
+                                    </div>
+                                    {user && (
+                                      <button 
+                                        onClick={() => handleSaveWord(item)}
+                                        className={cn(
+                                          "p-3 md:p-2.5 rounded-lg md:rounded-2xl transition-all shadow-sm",
+                                          isSaved 
+                                            ? "text-green-500 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
+                                            : "text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
+                                        )}
+                                        title={isSaved ? "Remove from Flashcards" : "Save to Flashcards"}
+                                      >
+                                        {isSaved ? <CheckCircle2 size={16} className="md:w-5 md:h-5" /> : <BookmarkPlus size={16} className="md:w-5 md:h-5" />}
+                                      </button>
+                                    )}
                                   </div>
-                                  {user && (
-                                    <button 
-                                      onClick={() => handleSaveWord(item)}
-                                      className={cn(
-                                        "p-1.5 md:p-2.5 rounded-lg md:rounded-2xl transition-all shadow-sm",
-                                        isSaved 
-                                          ? "text-green-500 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
-                                          : "text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
-                                      )}
-                                      title={isSaved ? "Remove from Flashcards" : "Save to Flashcards"}
-                                    >
-                                      {isSaved ? <CheckCircle2 size={16} className="md:w-5 md:h-5" /> : <BookmarkPlus size={16} className="md:w-5 md:h-5" />}
-                                    </button>
-                                  )}
+                                  <p className="text-sm md:text-base font-medium text-zinc-800 dark:text-zinc-200 mb-1">{item.translation}</p>
+                                  <p className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-500 leading-relaxed">{item.definition}</p>
                                 </div>
-                                <p className="text-sm md:text-base font-medium text-zinc-800 dark:text-zinc-200 mb-1">{item.translation}</p>
-                                <p className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-500 leading-relaxed">{item.definition}</p>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="space-y-4">
-                        <h3 className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 px-1">Grammar & Context</h3>
-                        <div className="prose prose-sm md:prose-base prose-zinc dark:prose-invert max-w-none bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl md:rounded-3xl p-4 md:p-8 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
-                          <ReactMarkdown>{analysis.explanation}</ReactMarkdown>
+                        <div className="space-y-6">
+                          <div className="space-y-3">
+                            <h3 className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 px-1">Grammar</h3>
+                            <div className="prose prose-sm md:prose-base prose-zinc dark:prose-invert max-w-none bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl md:rounded-3xl p-4 md:p-8 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
+                              <ReactMarkdown>{analysis.grammar}</ReactMarkdown>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <h3 className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 px-1">Context</h3>
+                            <div className="prose prose-sm md:prose-base prose-zinc dark:prose-invert max-w-none bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl md:rounded-3xl p-4 md:p-8 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
+                              <ReactMarkdown>{analysis.context}</ReactMarkdown>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </motion.div>

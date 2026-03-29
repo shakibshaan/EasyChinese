@@ -41,11 +41,12 @@ export interface SentenceAnalysis {
   pinyin?: string;
   tokens?: SentenceToken[];
   breakdown: WordBreakdown[];
-  explanation: string;
+  grammar: string;
+  context: string;
 }
 
 // Simple persistent cache to store analysis results
-const CACHE_KEY = 'lingua_flow_analysis_cache_v2';
+const CACHE_KEY = 'hanzi_flow_analysis_cache_v4';
 const getCache = (): Record<string, SentenceAnalysis> => {
   try {
     const cached = localStorage.getItem(CACHE_KEY);
@@ -92,9 +93,9 @@ export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
     1. If the input is English, translate it to Chinese AND provide Pinyin for the Chinese translation.
     2. If the input is Chinese, provide Pinyin for the original text.
     3. Break it down word by word or character by character.
-    4. Provide a full translation and a grammar/contextual explanation.
+    4. Provide a grammar explanation and contextual notes as two separate fields.
     5. Provide a "tokens" array for the Chinese sentence (either the original or the translation) where each element is an object with "text" (the Chinese word/character) and "pinyin" (its pinyin). This is for word-by-word alignment. Include punctuation as tokens without pinyin.
-    6. In the "explanation" field, whenever you mention a Chinese word or phrase, always include its Pinyin in parentheses immediately after the Chinese characters (e.g., "坏了 (huài le)").
+    6. In the "grammar" and "context" fields, whenever you mention a Chinese word or phrase, always include its Pinyin in parentheses immediately after the Chinese characters (e.g., "坏了 (huài le)").
     
     Sentence: "${trimmedText}"`,
     config: {
@@ -131,9 +132,10 @@ export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
               required: ["word", "translation", "definition"]
             }
           },
-          explanation: { type: Type.STRING }
+          grammar: { type: Type.STRING, description: "Detailed grammar explanation of the sentence." },
+          context: { type: Type.STRING, description: "Contextual notes, cultural nuances, or usage tips." }
         },
-        required: ["originalText", "translatedText", "breakdown", "explanation"]
+        required: ["originalText", "translatedText", "breakdown", "grammar", "context"]
       }
     }
   });

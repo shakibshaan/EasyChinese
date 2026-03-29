@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "Folder": {
+      "title": "Flashcard Folder",
+      "description": "A container for flashcards.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isDefault": { "type": "boolean" }
+      },
+      "required": ["name", "userId", "createdAt"]
+    },
+    "Flashcard": {
+      "title": "Flashcard",
+      "description": "A single flashcard belonging to a folder.",
+      "type": "object",
+      "properties": {
+        "folderId": { "type": "string" },
+        "front": { "type": "string", "description": "Chinese text" },
+        "back": { "type": "string", "description": "Meaning/Translation" },
+        "pinyin": { "type": "string" },
+        "description": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastTested": { "type": "string", "format": "date-time" },
+        "difficulty": { "type": "number", "description": "0-5 scale" }
+      },
+      "required": ["folderId", "front", "back", "userId", "createdAt"]
+    },
+    "SavedSentence": {
+      "title": "Saved Sentence",
+      "description": "A sentence analyzed and saved by the user for language learning.",
+      "type": "object",
+      "properties": {
+        "originalText": {
+          "type": "string",
+          "description": "The original sentence in Chinese or English."
+        },
+        "translatedText": {
+          "type": "string",
+          "description": "The full translation of the sentence."
+        },
+        "breakdown": {
+          "type": "array",
+          "description": "A word-by-word breakdown of the sentence.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "word": { "type": "string" },
+              "pinyin": { "type": "string" },
+              "translation": { "type": "string" },
+              "pos": { "type": "string" },
+              "definition": { "type": "string" },
+              "context": { "type": "string" }
+            }
+          }
+        },
+        "explanation": {
+          "type": "string",
+          "description": "Grammar or contextual explanation."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who saved the sentence."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the sentence was saved."
+        },
+        "isLearned": {
+          "type": "boolean",
+          "description": "Whether the user has marked this sentence as learned."
+        }
+      },
+      "required": ["originalText", "translatedText", "breakdown", "userId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/folders/{folderId}": {
+      "schema": "Folder",
+      "description": "User folders for organizing flashcards."
+    },
+    "/flashcards/{flashcardId}": {
+      "schema": "Flashcard",
+      "description": "Individual flashcards."
+    },
+    "/sentences/{sentenceId}": {
+      "schema": "SavedSentence",
+      "description": "Collection of saved sentences for language learning."
+    }
+  }
+}

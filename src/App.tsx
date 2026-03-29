@@ -982,7 +982,7 @@ return (
               className="lg:hidden fixed inset-y-0 left-0 w-[280px] bg-white dark:bg-zinc-900 z-50 flex flex-col shadow-2xl border-r border-zinc-200 dark:border-zinc-800"
             >
               <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-                <h1 className="text-lg font-serif font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">LinguaFlow</h1>
+                <h1 className="text-lg font-serif font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">HanziFlow</h1>
                 <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
                   <X size={20} />
                 </button>
@@ -1025,7 +1025,7 @@ return (
             >
               <Menu size={18} className="text-zinc-600 dark:text-zinc-400" />
             </button>
-            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">LinguaFlow</h1>
+            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">HanziFlow</h1>
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">

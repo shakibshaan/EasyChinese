@@ -83,8 +83,10 @@ export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
     throw new Error("Gemini API key is missing. Please check your environment variables.");
   }
 
+// api model
+
   const response = await ai.models.generateContent({
-    model: "gemini-flash-latest",
+    model: "gemini-3.1-flash-lite-preview", // Switched to Flash Lite for maximum speed
     contents: `Analyze the following sentence for a language learner (Chinese ↔ English). 
     IMPORTANT: 
     1. If the input is English, translate it to Chinese AND provide Pinyin for the Chinese translation.

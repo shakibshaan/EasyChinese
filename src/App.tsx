@@ -221,7 +221,7 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current }: {
           <div key={idx} className="flex flex-col items-center">
             <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{token.text}</span>
             {showPinyin && token.pinyin && (
-              <span className="text-[10px] md:text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-1 md:mt-2 font-sans uppercase tracking-tighter">
+              <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
                 {token.pinyin}
               </span>
             )}
@@ -256,7 +256,7 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current }: {
             <div className="h-px bg-zinc-200 dark:bg-zinc-800 w-full mb-8" />
 
             <p className="text-3xl font-serif text-zinc-800 dark:text-zinc-200 mb-4">{card.back}</p>
-            {card.pinyin && !card.tokens && <p className="text-xl text-indigo-600 dark:text-indigo-400 font-medium mb-6">{card.pinyin}</p>}
+            {card.pinyin && !card.tokens && <p className="text-2xl text-indigo-600 dark:text-indigo-400 font-medium mb-6 lowercase">{card.pinyin}</p>}
             {card.description && (
               <div className="w-full text-left bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
                 <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{card.description}</p>
@@ -1170,7 +1170,7 @@ return (
                                    <div key={idx} className="flex flex-col items-center">
                                      <span className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white leading-none">{token.text}</span>
                                      {token.pinyin && (
-                                       <span className="text-[10px] md:text-xs font-medium text-indigo-600 dark:text-indigo-400 mt-1 md:mt-2 font-sans uppercase tracking-tighter">
+                                       <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
                                          {token.pinyin}
                                        </span>
                                      )}
@@ -1192,7 +1192,7 @@ return (
                                    <div key={idx} className="flex flex-col items-center">
                                      <span className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white leading-none">{token.text}</span>
                                      {token.pinyin && (
-                                       <span className="text-[10px] md:text-xs font-medium text-indigo-600 dark:text-indigo-400 mt-1 md:mt-2 font-sans uppercase tracking-tighter">
+                                       <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
                                          {token.pinyin}
                                        </span>
                                      )}
@@ -1220,7 +1220,7 @@ return (
                                   <div className="flex justify-between items-start mb-3 md:mb-4">
                                     <div className="flex items-baseline gap-2 md:gap-3">
                                       <span className="text-xl md:text-3xl font-serif font-bold text-zinc-900 dark:text-white">{item.word}</span>
-                                      {item.pinyin && <span className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400">{item.pinyin}</span>}
+                                      {item.pinyin && <span className="text-base md:text-lg font-medium text-indigo-600 dark:text-indigo-400 lowercase">{item.pinyin}</span>}
                                     </div>
                                     {user && (
                                       <button 

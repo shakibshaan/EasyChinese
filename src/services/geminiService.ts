@@ -58,9 +58,9 @@ const getCache = (): Record<string, SentenceAnalysis> => {
 
 const saveCache = (cache: Record<string, SentenceAnalysis>) => {
   try {
-    // Limit cache size to avoid localStorage limits
+    // Limit cache size to avoid localStorage limits - increased for VPN users
     const keys = Object.keys(cache);
-    if (keys.length > 50) {
+    if (keys.length > 100) {
       delete cache[keys[0]];
     }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
@@ -87,18 +87,18 @@ export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
 // api model
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview", // Switched to Flash Lite for maximum speed
-    contents: `Analyze the following sentence for a language learner (Chinese ↔ English). 
-    IMPORTANT: 
-    1. If the input is English, translate it to Chinese AND provide Pinyin for the Chinese translation.
-    2. If the input is Chinese, provide Pinyin for the original text.
-    3. Break it down word by word or character by character.
-    4. Provide a grammar explanation and contextual notes as two separate fields.
-    5. Provide a "tokens" array for the Chinese sentence (either the original or the translation) where each element is an object with "text" (the Chinese word/character) and "pinyin" (its pinyin). This is for word-by-word alignment. Include punctuation as tokens without pinyin.
-    6. In the "grammar" and "context" fields, whenever you mention a Chinese word or phrase, always include its Pinyin in parentheses immediately after the Chinese characters (e.g., "坏了 (huài le)").
+    model: "gemini-3.1-flash-lite-preview", 
+    contents: `Analyze for a language learner (ZH ↔ EN). 
+    1. If EN, translate to ZH + Pinyin.
+    2. If ZH, provide Pinyin.
+    3. Word-by-word breakdown.
+    4. Grammar & Context notes.
+    5. "tokens" array for ZH sentence (text & pinyin). Include punctuation (no pinyin).
+    6. In grammar/context, always add Pinyin in () after ZH chars.
     
     Sentence: "${trimmedText}"`,
     config: {
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,

@@ -946,7 +946,7 @@ function App() {
   const isCurrentAnalysisSaved = analysis && savedSentences.some(s => s.originalText === analysis.originalText);
 
 return (
-    <div className={cn("flex h-screen overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
+    <div className={cn("flex h-[100dvh] overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
       <Toaster position="bottom-right" richColors />
       {/* Sidebar - Desktop */}
       <motion.aside 
@@ -1032,7 +1032,7 @@ return (
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Header */}
-        <header className="h-14 md:h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-10">
+        <header className="sticky top-0 h-14 md:h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-30">
           <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}

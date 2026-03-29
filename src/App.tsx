@@ -997,7 +997,7 @@ return (
               className="lg:hidden fixed inset-y-0 left-0 w-[280px] bg-white dark:bg-zinc-900 z-50 flex flex-col shadow-2xl border-r border-zinc-200 dark:border-zinc-800"
             >
               <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-                <h1 className="text-lg font-serif font-bold text-rose-500 dark:text-rose-400">HanziFlow</h1>
+                <h1 className="text-lg font-serif font-bold text-rose-500 dark:text-rose-400">EasyChinese</h1>
                 <button onClick={() => setIsSidebarOpen(false)} className="p-3 -mr-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
                   <X size={20} />
                 </button>
@@ -1032,7 +1032,7 @@ return (
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Header */}
-        <header className="h-14 md:h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 sticky top-0 z-10">
+        <header className="h-14 md:h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-10">
           <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -1040,7 +1040,7 @@ return (
             >
               <Menu size={18} className="text-zinc-600 dark:text-zinc-400" />
             </button>
-            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">HanziFlow</h1>
+            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">EasyChinese</h1>
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
@@ -1076,6 +1076,13 @@ return (
                         value={inputText}
                         maxLength={300}
                         onChange={(e) => setInputText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAnalyze(e);
+                          }
+                        }}
+                        enterKeyHint="go"
                         placeholder="Paste Chinese or English text (max 20 words)..."
                         className="w-full h-14 md:h-20 pl-6 md:pl-8 pr-16 md:pr-20 bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl shadow-xl shadow-indigo-500/5 focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-0 transition-all text-base md:text-xl font-serif dark:text-white"
                       />
@@ -1091,8 +1098,13 @@ return (
 
                   {/* Results Section */}
                   {isAnalyzing && (
-                    <div className="space-y-6 md:space-y-10 animate-pulse">
-                      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm">
+                    <div className="space-y-6 md:space-y-10">
+                      <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                        <RotateCw className="w-8 h-8 md:w-10 md:h-10 text-indigo-500 animate-spin" />
+                        <p className="text-sm md:text-base font-medium text-zinc-500 dark:text-zinc-400 animate-pulse">Analyzing please wait...</p>
+                      </div>
+                      <div className="space-y-6 md:space-y-10 animate-pulse opacity-50">
+                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm">
                         <div className="h-4 w-24 bg-zinc-100 dark:bg-zinc-800 rounded mb-4 md:mb-6" />
                         <div className="space-y-3 md:space-y-4">
                           <div className="h-8 md:h-12 w-3/4 bg-zinc-100 dark:bg-zinc-800 rounded-lg md:rounded-xl" />
@@ -1113,6 +1125,7 @@ return (
                           <div className="h-32 md:h-40 bg-zinc-100 dark:bg-zinc-800 rounded-2xl md:rounded-3xl" />
                         </div>
                       </div>
+                    </div>
                     </div>
                   )}
 

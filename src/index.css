@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@layer base {
+  html, body {
+    touch-action: manipulation;
+  }
+}
+
 @media (max-width: 768px) {
   html {
     font-size: 14px;

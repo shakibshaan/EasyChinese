@@ -1,24 +1,30 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 
-export const runtime = "nodejs";
-export const preferredRegion = "sin1";
+export const config = {
+  runtime: "nodejs",
+  regions: ["sin1"],
+};
 
-export async function POST(request: Request) {
+export default async function handler(req: any, res: any) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, error: "Method not allowed" });
+  }
+
   try {
-    const { text } = await request.json();
+    const { text } = req.body;
 
     if (!text || typeof text !== 'string') {
-      return Response.json({ success: false, error: "Text is required" }, { status: 400 });
+      return res.status(400).json({ success: false, error: "Text is required" });
     }
 
     if (text.length > 200) {
-      return Response.json({ success: false, error: "Text too long (max 200 chars)" }, { status: 400 });
+      return res.status(400).json({ success: false, error: "Text too long (max 200 chars)" });
     }
 
     const apiKey = process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
       console.error("Backend: VITE_GEMINI_API_KEY is missing");
-      return Response.json({ success: false, error: "AI configuration error" }, { status: 500 });
+      return res.status(500).json({ success: false, error: "AI configuration error" });
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -82,9 +88,9 @@ export async function POST(request: Request) {
     const cleanJson = resultText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
     const data = JSON.parse(cleanJson);
 
-    return Response.json({ success: true, data });
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     console.error("Gemini Proxy Error:", error);
-    return Response.json({ success: false, error: "AI request failed" }, { status: 500 });
+    return res.status(500).json({ success: false, error: "AI request failed" });
   }
 }

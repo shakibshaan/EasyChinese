@@ -275,26 +275,32 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
           onClick={() => setIsFlipped(!isFlipped)}
         >
           {/* Front */}
-          <div className="absolute inset-0 backface-hidden bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center text-center shadow-xl shadow-indigo-500/5 overflow-y-auto">
-            <div className="w-full min-h-full flex flex-col items-center justify-center py-2">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
-              {renderTokenized(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode)}
+          <div className="absolute inset-0 backface-hidden bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xl shadow-indigo-500/5 overflow-hidden">
+            <div className="h-full overflow-y-auto p-4 md:p-8 scrollbar-hide">
+              <div className="min-h-full flex flex-col items-center justify-center py-4">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
+                <div className="w-full flex justify-center">
+                  {renderTokenized(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode)}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Back */}
-          <div className="absolute inset-0 backface-hidden bg-zinc-50 dark:bg-zinc-950 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center text-center shadow-xl rotate-y-180 overflow-y-auto">
-            <div className="w-full min-h-full flex flex-col items-center justify-center py-2">
-              <div className="mb-4 w-full">
-                {renderTokenized(chineseText, card.tokens, card.pinyin, true, true)}
-                <p className="text-xl md:text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4">{englishText}</p>
-              </div>
-
-              {card.description && (
-                <div className="w-full text-left bg-white dark:bg-zinc-900 p-3 md:p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mt-2">
-                  <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{card.description}</p>
+          <div className="absolute inset-0 backface-hidden bg-zinc-50 dark:bg-zinc-950 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xl rotate-y-180 overflow-hidden">
+            <div className="h-full overflow-y-auto p-4 md:p-8 scrollbar-hide">
+              <div className="min-h-full flex flex-col items-center justify-center py-4">
+                <div className="mb-4 w-full flex flex-col items-center">
+                  {renderTokenized(chineseText, card.tokens, card.pinyin, true, true)}
+                  <p className="text-xl md:text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4 text-center">{englishText}</p>
                 </div>
-              )}
+
+                {card.description && (
+                  <div className="w-full text-left bg-white dark:bg-zinc-900 p-3 md:p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mt-2">
+                    <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{card.description}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>

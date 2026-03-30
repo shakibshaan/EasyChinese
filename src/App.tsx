@@ -18,7 +18,8 @@ import {
   FileText,
   Trophy,
   BookmarkPlus,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
@@ -510,6 +511,29 @@ const SidebarContent = ({
   </>
 );
 
+const LoadingScreen = () => (
+  <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center z-[100]">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center"
+    >
+      <div className="relative mb-8">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-4 border-rose-500/20 border-t-rose-500 rounded-full"
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-rose-500 animate-spin" />
+        </div>
+      </div>
+      <h2 className="text-2xl font-serif font-bold text-white mb-2">EasyChinese</h2>
+      <p className="text-zinc-400 font-mono text-xs uppercase tracking-widest animate-pulse">Initializing Experience...</p>
+    </motion.div>
+  </div>
+);
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -525,6 +549,12 @@ function App() {
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [testPile, setTestPile] = useState<FlashcardData[]>([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isDataReady, setIsDataReady] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState({
+    sentences: false,
+    folders: false,
+    flashcards: false
+  });
   const [recentAnalyses, setRecentAnalyses] = useState<SentenceAnalysis[]>([]);
   const [correctCount, setCorrectCount] = useState(0);
   const [incorrectCount, setIncorrectCount] = useState(0);
@@ -539,9 +569,20 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setIsAuthReady(true);
+      if (!u) {
+        setIsDataReady(true);
+      }
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (isAuthReady && user) {
+      if (dataLoaded.sentences && dataLoaded.folders && dataLoaded.flashcards) {
+        setIsDataReady(true);
+      }
+    }
+  }, [isAuthReady, user, dataLoaded]);
 
   // Test connection
   useEffect(() => {
@@ -571,7 +612,10 @@ function App() {
     // Sentences
     const qSentences = query(collection(db, 'sentences'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
     const unsubSentences = onSnapshot(qSentences, 
-      (s) => setSavedSentences(s.docs.map(d => ({ ...d.data(), id: d.id })) as SavedSentence[]),
+      (s) => {
+        setSavedSentences(s.docs.map(d => ({ ...d.data(), id: d.id })) as SavedSentence[]);
+        setDataLoaded(prev => ({ ...prev, sentences: true }));
+      },
       (error) => handleFirestoreError(error, OperationType.GET, 'sentences')
     );
 
@@ -584,6 +628,7 @@ function App() {
         if (folderList.length > 0 && !activeFolderId) {
           setActiveFolderId(folderList.find(f => f.isDefault)?.id || folderList[0].id);
         }
+        setDataLoaded(prev => ({ ...prev, folders: true }));
       },
       (error) => handleFirestoreError(error, OperationType.GET, 'folders')
     );
@@ -591,7 +636,10 @@ function App() {
     // Flashcards
     const qCards = query(collection(db, 'flashcards'), where('userId', '==', user.uid));
     const unsubCards = onSnapshot(qCards, 
-      (s) => setFlashcards(s.docs.map(d => ({ ...d.data(), id: d.id })) as FlashcardData[]),
+      (s) => {
+        setFlashcards(s.docs.map(d => ({ ...d.data(), id: d.id })) as FlashcardData[]);
+        setDataLoaded(prev => ({ ...prev, flashcards: true }));
+      },
       (error) => handleFirestoreError(error, OperationType.GET, 'flashcards')
     );
 
@@ -946,6 +994,10 @@ function App() {
   const isCurrentAnalysisSaved = analysis && savedSentences.some(s => s.originalText === analysis.originalText);
 
 return (
+  <>
+    <AnimatePresence>
+      {!isDataReady && <LoadingScreen key="loading" />}
+    </AnimatePresence>
     <div className={cn("flex h-[100dvh] overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
       <Toaster position="bottom-right" richColors />
       {/* Sidebar - Desktop */}
@@ -1417,6 +1469,7 @@ return (
         .dark .prose code { color: #818cf8; }
       `}</style>
     </div>
+  </>
   );
 }
 

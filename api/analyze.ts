@@ -36,9 +36,11 @@ export default async function handler(req: any, res: any) {
     1. If EN, translate to ZH + Pinyin.
     2. If ZH, provide Pinyin.
     3. Word-by-word breakdown.
-    4. Grammar & Context notes.
-    5. "tokens" array for ZH sentence (text & pinyin). Include punctuation (no pinyin).
-    6. In grammar/context, always add Pinyin in () after ZH chars.
+    4. Grammar: Output ONLY the main grammar structure in one line, followed by a one-line brief explanation. Max 2 lines total.
+    5. Context: 1) A brief sentence on usage in China. 2) Provide exactly two short example sentences.
+    6. "tokens" array for ZH sentence (text & pinyin). Include punctuation (no pinyin).
+    7. In grammar/contextUsage, always add Pinyin in () after ZH chars.
+    8. Be extremely concise. Minimize characters while remaining helpful.
     
     Sentence: "${trimmedText}"`,
       config: {
@@ -76,10 +78,22 @@ export default async function handler(req: any, res: any) {
                 required: ["word", "translation", "definition"]
               }
             },
-            grammar: { type: Type.STRING, description: "Detailed grammar explanation of the sentence." },
-            context: { type: Type.STRING, description: "Contextual notes, cultural nuances, or usage tips." }
+            grammar: { type: Type.STRING, description: "One line for structure, one line for brief explanation. Max 2 lines total." },
+            contextUsage: { type: Type.STRING, description: "Brief usage in China. Be very concise." },
+            contextExamples: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  text: { type: Type.STRING },
+                  pinyin: { type: Type.STRING },
+                  translation: { type: Type.STRING }
+                },
+                required: ["text", "pinyin", "translation"]
+              }
+            }
           },
-          required: ["originalText", "translatedText", "breakdown", "grammar", "context"]
+          required: ["originalText", "translatedText", "breakdown", "grammar", "contextUsage", "contextExamples"]
         }
       }
     });

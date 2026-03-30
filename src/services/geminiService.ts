@@ -12,6 +12,12 @@ export interface SentenceToken {
   pinyin?: string;
 }
 
+export interface ContextExample {
+  text: string;
+  pinyin: string;
+  translation: string;
+}
+
 export interface SentenceAnalysis {
   originalText: string;
   translatedText: string;
@@ -19,7 +25,8 @@ export interface SentenceAnalysis {
   tokens?: SentenceToken[];
   breakdown: WordBreakdown[];
   grammar: string;
-  context: string;
+  contextUsage: string;
+  contextExamples: ContextExample[];
 }
 
 // Simple persistent cache to store analysis results

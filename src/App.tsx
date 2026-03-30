@@ -19,13 +19,14 @@ import {
   Trophy,
   BookmarkPlus,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc, getDocFromServer } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
-import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken } from './services/geminiService';
+import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, ContextExample } from './services/geminiService';
 import { cn } from './lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Toaster, toast } from 'sonner';
@@ -213,8 +214,17 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current }: {
 
   if (!card) return null;
 
-  const renderTokenized = (text: string, tokens?: SentenceToken[], showPinyin: boolean = true) => {
-    if (!tokens) return <h2 className={cn("font-serif leading-tight text-zinc-900 dark:text-white", showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{text}</h2>;
+  const renderTokenized = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true) => {
+    if (!tokens) return (
+      <div className="flex flex-col items-center">
+        <h2 className={cn("font-serif leading-tight text-zinc-900 dark:text-white", showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{text}</h2>
+        {showPinyin && pinyin && (
+          <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
+            {pinyin}
+          </span>
+        )}
+      </div>
+    );
     
     return (
       <div className="flex flex-wrap justify-center gap-x-2 md:gap-x-4 gap-y-4 md:gap-y-8">
@@ -243,24 +253,19 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current }: {
           {/* Front */}
           <div className="absolute inset-0 backface-hidden bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center justify-center text-center shadow-xl shadow-indigo-500/5">
             <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
-            {renderTokenized(card.front, card.tokens, false)}
+            {renderTokenized(card.front, card.tokens, card.pinyin, false)}
           </div>
 
           {/* Back */}
           <div className="absolute inset-0 backface-hidden bg-zinc-50 dark:bg-zinc-950 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center justify-center text-center shadow-xl rotate-y-180 overflow-y-auto">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Answer</span>
-            
-            <div className="mb-8 w-full">
-              {renderTokenized(card.front, card.tokens, true)}
+            <div className="mb-6 w-full">
+              {renderTokenized(card.front, card.tokens, card.pinyin, true)}
+              <p className="text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4">{card.back}</p>
             </div>
 
-            <div className="h-px bg-zinc-200 dark:bg-zinc-800 w-full mb-8" />
-
-            <p className="text-3xl font-serif text-zinc-800 dark:text-zinc-200 mb-4">{card.back}</p>
-            {card.pinyin && !card.tokens && <p className="text-2xl text-indigo-600 dark:text-indigo-400 font-medium mb-6 lowercase">{card.pinyin}</p>}
             {card.description && (
-              <div className="w-full text-left bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{card.description}</p>
+              <div className="w-full text-left bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mt-6">
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{card.description}</p>
               </div>
             )}
           </div>
@@ -321,6 +326,8 @@ interface SidebarProps {
   handleCreateFolder: () => void;
   folderToDelete: string | null;
   setFolderToDelete: (id: string | null) => void;
+  sentenceToDelete: string | null;
+  setSentenceToDelete: (id: string | null) => void;
   handleDeleteFolder: (id: string) => void;
   recentAnalyses: SentenceAnalysis[];
   setRecentAnalyses: React.Dispatch<React.SetStateAction<SentenceAnalysis[]>>;
@@ -344,6 +351,8 @@ const SidebarContent = ({
   handleCreateFolder,
   folderToDelete,
   setFolderToDelete,
+  sentenceToDelete,
+  setSentenceToDelete,
   handleDeleteFolder,
   recentAnalyses,
   setRecentAnalyses,
@@ -381,7 +390,15 @@ const SidebarContent = ({
           )}
           
           <div className="space-y-1">
-            {folders.map(f => (
+            {[...folders].sort((a, b) => {
+              if (a.isDefault) return -1;
+              if (b.isDefault) return 1;
+              
+              // Sort non-default folders by creation time (ascending)
+              const aTime = a.createdAt?.toMillis?.() || 0;
+              const bTime = b.createdAt?.toMillis?.() || 0;
+              return aTime - bTime;
+            }).map(f => (
               <div key={f.id} className="group relative">
                 <div 
                   onClick={() => { 
@@ -404,24 +421,24 @@ const SidebarContent = ({
                     {!f.isDefault && (
                       <div className="flex items-center">
                         {folderToDelete === f.id ? (
-                          <div className="flex items-center gap-1 bg-red-500 rounded p-1">
+                          <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg">
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
-                              className="text-[10px] font-bold text-white hover:underline"
+                              className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
                             >
                               Confirm
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); setFolderToDelete(null); }}
-                              className="text-[10px] font-bold text-white/70 hover:text-white"
+                              className="p-1 text-white/70 hover:text-white"
                             >
-                              <X size={10} />
+                              <X size={14} />
                             </button>
                           </div>
                         ) : (
                           <button 
                             onClick={(e) => { e.stopPropagation(); setFolderToDelete(f.id); }}
-                            className="p-3 md:p-1 hover:bg-white/20 rounded transition-all"
+                            className="p-3 md:p-1.5 hover:bg-white/20 rounded-lg transition-all"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -473,19 +490,39 @@ const SidebarContent = ({
                       </div>
                     </div>
                     {isSaved && savedId && (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteDoc(doc(db, 'sentences', savedId)).then(() => {
-                            setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
-                            toast.success("Sentence deleted");
-                          });
-                        }}
-                        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
-                        title="Delete Sentence"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 flex items-center">
+                        {sentenceToDelete === savedId ? (
+                          <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg z-10">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteDoc(doc(db, 'sentences', savedId)).then(() => {
+                                  setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
+                                  toast.success("Sentence deleted");
+                                  setSentenceToDelete(null);
+                                });
+                              }}
+                              className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
+                            >
+                              Confirm
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setSentenceToDelete(null); }}
+                              className="p-1 text-white/70 hover:text-white"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setSentenceToDelete(savedId); }}
+                            className="p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
+                            title="Delete Sentence"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     )}
                     {!isSaved && (
                       <button 
@@ -563,6 +600,7 @@ function App() {
   const [newFolderName, setNewFolderName] = useState('');
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [sentenceToDelete, setSentenceToDelete] = useState<string | null>(null);
   const creatingDefaultFolder = React.useRef(false);
 
   useEffect(() => {
@@ -819,7 +857,7 @@ function App() {
         back: analysis.translatedText,
         pinyin: analysis.pinyin || '',
         tokens: analysis.tokens || null,
-        description: `${analysis.grammar}\n\n---\n\n${analysis.context}`,
+        description: `${analysis.grammar}\n\n---\n\n${analysis.contextUsage}\n\n${analysis.contextExamples?.map(ex => `${ex.text} (${ex.pinyin} - ${ex.translation})`).join('\n') || ''}`,
         userId: user.uid,
         createdAt: serverTimestamp()
       });
@@ -868,6 +906,45 @@ function App() {
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'flashcards');
       toast.error("Failed to save word.");
+    }
+  };
+
+  const handleSaveExample = async (example: ContextExample) => {
+    if (!user) return;
+    try {
+      const defaultFolder = folders.find(f => f.isDefault);
+      const folderId = activeFolderId || defaultFolder?.id;
+      if (!folderId) {
+        toast.error("No folder found to save the example.");
+        return;
+      }
+
+      // Check for duplicates in the target folder
+      const existingFlashcard = flashcards.find(c => 
+        c.folderId === folderId && 
+        c.front === example.text
+      );
+
+      if (existingFlashcard) {
+        // Unsave
+        await deleteDoc(doc(db, 'flashcards', existingFlashcard.id));
+        toast.success(`Example removed from flashcards`);
+        return;
+      }
+
+      await addDoc(collection(db, 'flashcards'), {
+        folderId,
+        front: example.text,
+        back: example.translation,
+        pinyin: example.pinyin || '',
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      });
+
+      toast.success(`Example saved to flashcards!`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'flashcards');
+      toast.error("Failed to save example.");
     }
   };
 
@@ -1022,6 +1099,8 @@ return (
           handleCreateFolder={handleCreateFolder}
           folderToDelete={folderToDelete}
           setFolderToDelete={setFolderToDelete}
+          sentenceToDelete={sentenceToDelete}
+          setSentenceToDelete={setSentenceToDelete}
           handleDeleteFolder={handleDeleteFolder}
           recentAnalyses={recentAnalyses}
           setRecentAnalyses={setRecentAnalyses}
@@ -1032,6 +1111,20 @@ return (
 
       {/* Sidebar - Mobile Drawer */}
       <AnimatePresence>
+        {!isSidebarOpen && (
+          <motion.div 
+            key="swipe-edge"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="lg:hidden fixed left-0 top-0 bottom-0 w-8 z-40"
+            onPan={(e, info) => {
+              if (info.offset.x > 40) {
+                setIsSidebarOpen(true);
+              }
+            }}
+          />
+        )}
         {isSidebarOpen && (
           <>
             <motion.div 
@@ -1070,6 +1163,8 @@ return (
                 handleCreateFolder={handleCreateFolder}
                 folderToDelete={folderToDelete}
                 setFolderToDelete={setFolderToDelete}
+                sentenceToDelete={sentenceToDelete}
+                setSentenceToDelete={setSentenceToDelete}
                 handleDeleteFolder={handleDeleteFolder}
                 recentAnalyses={recentAnalyses}
                 setRecentAnalyses={setRecentAnalyses}
@@ -1100,10 +1195,10 @@ return (
             {viewMode !== 'analysis' && (
               <button 
                 onClick={() => setViewMode('analysis')}
-                className="text-xs md:text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1"
+                className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl border-2 border-rose-500/20 dark:border-rose-400/20 bg-rose-500/5 dark:bg-rose-400/5 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white dark:hover:bg-rose-400 dark:hover:text-zinc-950 transition-all flex items-center gap-2 text-xs md:text-sm font-bold"
               >
-                <X size={14} />
-                Exit
+                <Home size={16} />
+                Back
               </button>
             )}
           </div>
@@ -1300,15 +1395,65 @@ return (
                         <div className="space-y-6">
                           <div className="space-y-3">
                             <h3 className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 px-1">Grammar</h3>
-                            <div className="prose prose-sm md:prose-base prose-zinc dark:prose-invert max-w-none bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl md:rounded-3xl p-4 md:p-8 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
+                            <div className="prose prose-sm md:prose-base prose-zinc dark:prose-invert max-w-none bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl md:rounded-3xl p-4 md:p-8 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 whitespace-pre-wrap">
                               <ReactMarkdown>{analysis.grammar}</ReactMarkdown>
                             </div>
                           </div>
                           
                           <div className="space-y-3">
                             <h3 className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 px-1">Context</h3>
-                            <div className="prose prose-sm md:prose-base prose-zinc dark:prose-invert max-w-none bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl md:rounded-3xl p-4 md:p-8 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
-                              <ReactMarkdown>{analysis.context}</ReactMarkdown>
+                            <div className="bg-zinc-100/50 dark:bg-zinc-900/50 rounded-2xl md:rounded-3xl p-4 md:p-8 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 space-y-6">
+                              {analysis.contextUsage && (
+                                <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{analysis.contextUsage}</p>
+                              )}
+                              
+                              {analysis.contextExamples && analysis.contextExamples.length > 0 && (
+                                <div className="space-y-6 pt-2">
+                                  {analysis.contextExamples.map((ex, idx) => {
+                                    const isSaved = flashcards.some(c => c.front === ex.text && (activeFolderId ? c.folderId === activeFolderId : true));
+                                    return (
+                                      <div key={idx} className="space-y-3 relative group/ex">
+                                        <div className="flex justify-between items-start">
+                                          <div className="flex flex-wrap gap-x-3 gap-y-2">
+                                            {ex.text.split('').map((char, cIdx) => (
+                                              <div key={cIdx} className="flex flex-col items-center">
+                                                <span className="text-xl md:text-2xl font-serif text-zinc-900 dark:text-white leading-none">{char}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                          <button 
+                                            onClick={() => handleSaveExample(ex)}
+                                            className={cn(
+                                              "p-2 rounded-xl transition-all",
+                                              isSaved 
+                                                ? "text-green-500 bg-green-50 dark:bg-green-900/20" 
+                                                : "text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                                            )}
+                                            title={isSaved ? "Remove from Flashcards" : "Save to Flashcards"}
+                                          >
+                                            {isSaved ? <CheckCircle2 size={16} /> : <BookmarkPlus size={16} />}
+                                          </button>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <p className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tight">
+                                            {ex.pinyin}
+                                          </p>
+                                          <p className="text-xs md:text-sm text-zinc-500 dark:text-zinc-400 italic">
+                                            {ex.translation}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              
+                              {/* Fallback for old data */}
+                              {(!analysis.contextUsage && !analysis.contextExamples) && (analysis as any).context && (
+                                <div className="prose prose-sm md:prose-base prose-zinc dark:prose-invert max-w-none whitespace-pre-wrap">
+                                  <ReactMarkdown>{(analysis as any).context}</ReactMarkdown>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1340,24 +1485,35 @@ return (
 
                   <div className="h-[500px] max-w-xl mx-auto">
                     {activeFolderCards.length > 0 ? (
-                      <Flashcard 
-                        card={activeFolderCards[flashcardIndex]} 
-                        total={activeFolderCards.length}
-                        current={flashcardIndex}
-                        onNext={() => setFlashcardIndex((flashcardIndex + 1) % activeFolderCards.length)}
-                        onPrev={() => setFlashcardIndex((flashcardIndex - 1 + activeFolderCards.length) % activeFolderCards.length)}
-                        onDelete={async (id) => {
-                          try {
-                            await deleteDoc(doc(db, 'flashcards', id));
-                            toast.success("Flashcard deleted");
-                            if (flashcardIndex >= activeFolderCards.length - 1 && flashcardIndex > 0) {
-                              setFlashcardIndex(flashcardIndex - 1);
-                            }
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.DELETE, 'flashcards');
-                          }
-                        }}
-                      />
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={activeFolderCards[flashcardIndex].id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          transition={{ duration: 0.2 }}
+                          className="h-full"
+                        >
+                          <Flashcard 
+                            card={activeFolderCards[flashcardIndex]} 
+                            total={activeFolderCards.length}
+                            current={flashcardIndex}
+                            onNext={() => setFlashcardIndex((flashcardIndex + 1) % activeFolderCards.length)}
+                            onPrev={() => setFlashcardIndex((flashcardIndex - 1 + activeFolderCards.length) % activeFolderCards.length)}
+                            onDelete={async (id) => {
+                              try {
+                                await deleteDoc(doc(db, 'flashcards', id));
+                                toast.success("Flashcard deleted");
+                                if (flashcardIndex >= activeFolderCards.length - 1 && flashcardIndex > 0) {
+                                  setFlashcardIndex(flashcardIndex - 1);
+                                }
+                              } catch (error) {
+                                handleFirestoreError(error, OperationType.DELETE, 'flashcards');
+                              }
+                            }}
+                          />
+                        </motion.div>
+                      </AnimatePresence>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl">
                         <BookOpen size={48} className="text-zinc-200 dark:text-zinc-800 mb-4" />

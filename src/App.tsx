@@ -198,13 +198,15 @@ const Auth = ({ user }: { user: User | null }) => {
   );
 };
 
-const Flashcard = ({ card, onNext, onPrev, onDelete, total, current }: { 
+const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode, setPinyinMode }: { 
   card: FlashcardData | undefined; 
   onNext: () => void; 
   onPrev: () => void;
   onDelete?: (id: string) => void;
   total: number;
   current: number;
+  pinyinMode: boolean;
+  setPinyinMode: (mode: boolean) => void;
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -214,36 +216,58 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current }: {
 
   if (!card) return null;
 
-  const renderTokenized = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true) => {
-    if (!tokens) return (
-      <div className="flex flex-col items-center">
-        <h2 className={cn("font-serif leading-tight text-zinc-900 dark:text-white", showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{text}</h2>
-        {showPinyin && pinyin && (
-          <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
-            {pinyin}
-          </span>
-        )}
-      </div>
-    );
+  const renderTokenized = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true) => {
+    if (!tokens) {
+      const actualShowChinese = showChinese || (!showChinese && !pinyin);
+      return (
+        <div className="flex flex-col items-center">
+          {actualShowChinese && <h2 className={cn("font-serif leading-tight text-zinc-900 dark:text-white", showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{text}</h2>}
+          {showPinyin && pinyin && (
+            <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", actualShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl")}>
+              {pinyin}
+            </span>
+          )}
+        </div>
+      );
+    }
     
     return (
-      <div className="flex flex-wrap justify-center gap-x-2 md:gap-x-4 gap-y-4 md:gap-y-8">
-        {tokens.map((token, idx) => (
-          <div key={idx} className="flex flex-col items-center">
-            <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{token.text}</span>
-            {showPinyin && token.pinyin && (
-              <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
-                {token.pinyin}
-              </span>
-            )}
-          </div>
-        ))}
+      <div className="flex flex-wrap justify-center gap-x-1 md:gap-x-2 gap-y-2 md:gap-y-4">
+        {tokens.map((token, idx) => {
+          const isPunctuation = !token.pinyin;
+          const tokenShowChinese = showChinese || isPunctuation;
+          return (
+            <div key={idx} className="flex flex-col items-center justify-end">
+              {tokenShowChinese && <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", showPinyin && !isPunctuation ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{token.text}</span>}
+              {showPinyin && token.pinyin && (
+                <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", tokenShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl")}>
+                  {token.pinyin}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
 
+  const isFrontChinese = !card.front.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/);
+  const chineseText = isFrontChinese ? card.front : card.back;
+  const englishText = isFrontChinese ? card.back : card.front;
+
   return (
     <div className="flex flex-col h-full">
+      <div className="flex justify-end mb-4">
+        <label className="flex items-center cursor-pointer gap-2 select-none">
+          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Pinyin Mode</span>
+          <div className="relative">
+            <input type="checkbox" className="sr-only" checked={pinyinMode} onChange={() => setPinyinMode(!pinyinMode)} />
+            <div className={cn("block w-10 h-6 rounded-full transition-colors", pinyinMode ? "bg-indigo-500" : "bg-zinc-300 dark:bg-zinc-700")}></div>
+            <div className={cn("dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform", pinyinMode ? "transform translate-x-4" : "")}></div>
+          </div>
+        </label>
+      </div>
+
       <div className="flex-1 perspective-1000">
         <motion.div 
           className="relative w-full h-full transition-all duration-500 preserve-3d cursor-pointer"
@@ -251,23 +275,27 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current }: {
           onClick={() => setIsFlipped(!isFlipped)}
         >
           {/* Front */}
-          <div className="absolute inset-0 backface-hidden bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center justify-center text-center shadow-xl shadow-indigo-500/5">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
-            {renderTokenized(card.front, card.tokens, card.pinyin, false)}
+          <div className="absolute inset-0 backface-hidden bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center text-center shadow-xl shadow-indigo-500/5 overflow-y-auto">
+            <div className="w-full min-h-full flex flex-col items-center justify-center py-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
+              {renderTokenized(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode)}
+            </div>
           </div>
 
           {/* Back */}
-          <div className="absolute inset-0 backface-hidden bg-zinc-50 dark:bg-zinc-950 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center justify-center text-center shadow-xl rotate-y-180 overflow-y-auto">
-            <div className="mb-6 w-full">
-              {renderTokenized(card.front, card.tokens, card.pinyin, true)}
-              <p className="text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4">{card.back}</p>
-            </div>
-
-            {card.description && (
-              <div className="w-full text-left bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mt-6">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{card.description}</p>
+          <div className="absolute inset-0 backface-hidden bg-zinc-50 dark:bg-zinc-950 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-8 flex flex-col items-center text-center shadow-xl rotate-y-180 overflow-y-auto">
+            <div className="w-full min-h-full flex flex-col items-center justify-center py-2">
+              <div className="mb-4 w-full">
+                {renderTokenized(chineseText, card.tokens, card.pinyin, true, true)}
+                <p className="text-xl md:text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4">{englishText}</p>
               </div>
-            )}
+
+              {card.description && (
+                <div className="w-full text-left bg-white dark:bg-zinc-900 p-3 md:p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mt-2">
+                  <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{card.description}</p>
+                </div>
+              )}
+            </div>
           </div>
         </motion.div>
       </div>
@@ -584,6 +612,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'analysis' | 'flashcards' | 'test' | 'results'>('analysis');
   const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [pinyinMode, setPinyinMode] = useState(false);
   const [testPile, setTestPile] = useState<FlashcardData[]>([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
@@ -1498,6 +1527,8 @@ return (
                             card={activeFolderCards[flashcardIndex]} 
                             total={activeFolderCards.length}
                             current={flashcardIndex}
+                            pinyinMode={pinyinMode}
+                            setPinyinMode={setPinyinMode}
                             onNext={() => setFlashcardIndex((flashcardIndex + 1) % activeFolderCards.length)}
                             onPrev={() => setFlashcardIndex((flashcardIndex - 1 + activeFolderCards.length) % activeFolderCards.length)}
                             onDelete={async (id) => {
@@ -1521,6 +1552,41 @@ return (
                       </div>
                     )}
                   </div>
+
+                  {activeFolderCards.length > 0 && (
+                    <div className="max-w-3xl mx-auto mt-12">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">All Cards in Folder</h3>
+                      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="max-h-[400px] overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                          {activeFolderCards.map((card, idx) => {
+                            const isFrontChinese = !card.front.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/);
+                            const chineseText = isFrontChinese ? card.front : card.back;
+                            const englishText = isFrontChinese ? card.back : card.front;
+                            
+                            return (
+                              <div 
+                                key={card.id} 
+                                className="p-4 transition-colors cursor-pointer border-b border-zinc-100 dark:border-zinc-800/50 last:border-0"
+                                onClick={() => setFlashcardIndex(idx)}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex flex-col mb-2">
+                                    <span className="text-xl font-serif text-zinc-900 dark:text-zinc-100">{chineseText}</span>
+                                    {card.pinyin && (
+                                      <span className="text-base md:text-lg font-medium text-indigo-600 dark:text-indigo-400 mt-0.5">
+                                        {card.pinyin}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400">{englishText}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               ) : viewMode === 'results' ? (
                 <motion.div key="results" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-xl mx-auto text-center space-y-8 py-12">
@@ -1591,6 +1657,8 @@ return (
                       card={testPile[flashcardIndex]} 
                       total={testPile.length}
                       current={flashcardIndex}
+                      pinyinMode={pinyinMode}
+                      setPinyinMode={setPinyinMode}
                       onNext={() => setFlashcardIndex((flashcardIndex + 1) % testPile.length)}
                       onPrev={() => setFlashcardIndex((flashcardIndex - 1 + testPile.length) % testPile.length)}
                     />

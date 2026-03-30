@@ -39,7 +39,7 @@ async function startServer() {
         model: "gemini-3.1-flash-lite-preview",
         contents: `Analyze for a language learner (ZH ↔ EN). 
     1. If EN, translate to ZH + Pinyin.
-    2. If ZH, provide Pinyin.
+    2. If ZH, translate to EN and provide Pinyin.
     3. Word-by-word breakdown.
     4. Grammar: Output ONLY the main grammar structure in one line, followed by a one-line brief explanation. Max 2 lines total.
     5. Context: 1) A brief sentence on usage in China. 2) Provide exactly two short example sentences.

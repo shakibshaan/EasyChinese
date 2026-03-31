@@ -198,6 +198,41 @@ const Auth = ({ user }: { user: User | null }) => {
   );
 };
 
+const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true, size: 'sm' | 'lg' = 'lg') => {
+  if (!tokens) {
+    const actualShowChinese = showChinese || (!showChinese && !pinyin);
+    return (
+      <div className={cn("flex flex-col", size === 'lg' ? "items-center" : "items-start")}>
+        {actualShowChinese && <span className={cn("font-serif leading-tight text-zinc-900 dark:text-white", size === 'lg' ? (showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl") : "text-xl")}>{text}</span>}
+        {showPinyin && pinyin && (
+          <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (actualShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl") : "text-sm mt-0.5")}>
+            {pinyin}
+          </span>
+        )}
+      </div>
+    );
+  }
+  
+  return (
+    <div className={cn("flex flex-wrap gap-x-1 md:gap-x-2 gap-y-2", size === 'lg' ? "justify-center md:gap-y-4" : "justify-start")}>
+      {tokens.map((token, idx) => {
+        const isPunctuation = !token.pinyin;
+        const tokenShowChinese = showChinese || isPunctuation;
+        return (
+          <div key={idx} className="flex flex-col items-center justify-end">
+            {tokenShowChinese && <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", size === 'lg' ? (showPinyin && !isPunctuation ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl") : "text-xl")}>{token.text}</span>}
+            {showPinyin && token.pinyin && (
+              <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (tokenShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl") : "text-sm mt-0.5")}>
+                {token.pinyin}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode, setPinyinMode }: { 
   card: FlashcardData | undefined; 
   onNext: () => void; 
@@ -215,41 +250,6 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
   }, [card]);
 
   if (!card) return null;
-
-  const renderTokenized = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true) => {
-    if (!tokens) {
-      const actualShowChinese = showChinese || (!showChinese && !pinyin);
-      return (
-        <div className="flex flex-col items-center">
-          {actualShowChinese && <h2 className={cn("font-serif leading-tight text-zinc-900 dark:text-white", showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{text}</h2>}
-          {showPinyin && pinyin && (
-            <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", actualShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl")}>
-              {pinyin}
-            </span>
-          )}
-        </div>
-      );
-    }
-    
-    return (
-      <div className="flex flex-wrap justify-center gap-x-1 md:gap-x-2 gap-y-2 md:gap-y-4">
-        {tokens.map((token, idx) => {
-          const isPunctuation = !token.pinyin;
-          const tokenShowChinese = showChinese || isPunctuation;
-          return (
-            <div key={idx} className="flex flex-col items-center justify-end">
-              {tokenShowChinese && <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", showPinyin && !isPunctuation ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl")}>{token.text}</span>}
-              {showPinyin && token.pinyin && (
-                <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", tokenShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl")}>
-                  {token.pinyin}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   const isFrontChinese = !card.front.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/);
   const chineseText = isFrontChinese ? card.front : card.back;
@@ -280,7 +280,7 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
               <div className="min-h-full flex flex-col items-center justify-center py-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
                 <div className="w-full flex justify-center">
-                  {renderTokenized(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode)}
+                  {renderTokenizedText(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode)}
                 </div>
               </div>
             </div>
@@ -291,7 +291,7 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
             <div className="h-full overflow-y-auto p-4 md:p-8 scrollbar-hide">
               <div className="min-h-full flex flex-col items-center justify-center py-4">
                 <div className="mb-4 w-full flex flex-col items-center">
-                  {renderTokenized(chineseText, card.tokens, card.pinyin, true, true)}
+                  {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true)}
                   <p className="text-xl md:text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4 text-center">{englishText}</p>
                 </div>
 
@@ -1450,11 +1450,12 @@ return (
                                       <div key={idx} className="space-y-3 relative group/ex">
                                         <div className="flex justify-between items-start">
                                           <div className="flex flex-wrap gap-x-3 gap-y-2">
-                                            {ex.text.split('').map((char, cIdx) => (
-                                              <div key={cIdx} className="flex flex-col items-center">
-                                                <span className="text-xl md:text-2xl font-serif text-zinc-900 dark:text-white leading-none">{char}</span>
-                                              </div>
-                                            ))}
+                                            <div className="flex flex-col items-start">
+                                              <span className="text-xl md:text-2xl font-serif text-zinc-900 dark:text-white leading-none">{ex.text}</span>
+                                              <span className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tight mt-1">
+                                                {ex.pinyin}
+                                              </span>
+                                            </div>
                                           </div>
                                           <button 
                                             onClick={() => handleSaveExample(ex)}
@@ -1470,9 +1471,6 @@ return (
                                           </button>
                                         </div>
                                         <div className="space-y-1">
-                                          <p className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tight">
-                                            {ex.pinyin}
-                                          </p>
                                           <p className="text-xs md:text-sm text-zinc-500 dark:text-zinc-400 italic">
                                             {ex.translation}
                                           </p>
@@ -1577,12 +1575,7 @@ return (
                               >
                                 <div className="flex-1">
                                   <div className="flex flex-col mb-2">
-                                    <span className="text-xl font-serif text-zinc-900 dark:text-zinc-100">{chineseText}</span>
-                                    {card.pinyin && (
-                                      <span className="text-base md:text-lg font-medium text-indigo-600 dark:text-indigo-400 mt-0.5">
-                                        {card.pinyin}
-                                      </span>
-                                    )}
+                                    {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true, 'sm')}
                                   </div>
                                   <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400">{englishText}</p>
                                 </div>

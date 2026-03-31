@@ -12,7 +12,7 @@ service cloud.firestore {
     // Fields: folderId, front, back, pinyin, description, userId, createdAt, lastTested, difficulty
     //
     // Collection: sentences
-    // Fields: originalText, translatedText, breakdown, explanation, userId, createdAt, isLearned
+    // Fields: originalText, translatedText, breakdown, explanation, userId, createdAt, isLearned, folderId
     //
     // ===============================================================
 
@@ -58,8 +58,9 @@ service cloud.firestore {
     }
 
     function isValidSentence(data) {
-      return hasRequiredFields(['originalText', 'translatedText', 'userId', 'createdAt']) &&
+      return hasRequiredFields(['originalText', 'translatedText', 'userId', 'createdAt', 'folderId']) &&
              data.originalText is string && data.originalText.size() > 0 && data.originalText.size() < 2000 &&
+             data.folderId is string &&
              data.userId == request.auth.uid;
     }
 

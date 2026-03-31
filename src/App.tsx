@@ -20,14 +20,15 @@ import {
   BookmarkPlus,
   CheckCircle2,
   Loader2,
-  Home
+  Home,
+  Volume2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc, getDocFromServer } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, ContextExample } from './services/geminiService';
-import { cn } from './lib/utils';
+import { cn, playAudio } from './lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Toaster, toast } from 'sonner';
 
@@ -37,6 +38,7 @@ interface SavedSentence extends SentenceAnalysis {
   userId: string;
   createdAt: any;
   isLearned?: boolean;
+  folderId: string;
 }
 
 interface Folder {
@@ -279,8 +281,17 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
             <div className="h-full overflow-y-auto p-4 md:p-8 scrollbar-hide">
               <div className="min-h-full flex flex-col items-center justify-center py-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
-                <div className="w-full flex justify-center">
+                <div className="w-full flex justify-center items-center gap-4">
                   {renderTokenizedText(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode)}
+                  {isFrontChinese && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); playAudio(chineseText); }} 
+                      className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                      title="Play pronunciation"
+                    >
+                      <Volume2 size={24} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -291,7 +302,16 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
             <div className="h-full overflow-y-auto p-4 md:p-8 scrollbar-hide">
               <div className="min-h-full flex flex-col items-center justify-center py-4">
                 <div className="mb-4 w-full flex flex-col items-center">
-                  {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true)}
+                  <div className="flex items-center gap-4">
+                    {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true)}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); playAudio(chineseText); }} 
+                      className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                      title="Play pronunciation"
+                    >
+                      <Volume2 size={24} />
+                    </button>
+                  </div>
                   <p className="text-xl md:text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4 text-center">{englishText}</p>
                 </div>
 
@@ -451,7 +471,9 @@ const SidebarContent = ({
                     <span className="font-medium truncate max-w-[140px]">{f.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold opacity-60">{flashcards.filter(c => c.folderId === f.id).length}</span>
+                    <span className="text-[10px] font-bold opacity-60">
+                      {flashcards.filter(c => c.folderId === f.id).length + savedSentences.filter(s => s.folderId === f.id).length}
+                    </span>
                     {!f.isDefault && (
                       <div className="flex items-center">
                         {folderToDelete === f.id ? (
@@ -605,6 +627,125 @@ const LoadingScreen = () => (
   </div>
 );
 
+const FolderSelectModal = ({ 
+  isOpen, 
+  onClose, 
+  folders, 
+  onSelect, 
+  onAddFolder, 
+  newFolderName, 
+  setNewFolderName, 
+  isAddingFolder, 
+  setIsAddingFolder,
+  savedInFolders = []
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  folders: Folder[]; 
+  onSelect: (folderId: string) => void;
+  onAddFolder: () => void;
+  newFolderName: string;
+  setNewFolderName: (name: string) => void;
+  isAddingFolder: boolean;
+  setIsAddingFolder: (is: boolean) => void;
+  savedInFolders?: string[];
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800"
+      >
+        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Save to Folder</h3>
+          <button onClick={onClose} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-500">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
+          {folders.map(folder => {
+            const isSaved = savedInFolders.includes(folder.id);
+            return (
+              <button
+                key={folder.id}
+                onClick={() => onSelect(folder.id)}
+                className={cn(
+                  "w-full flex items-center justify-between p-4 rounded-2xl transition-all border",
+                  isSaved 
+                    ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400" 
+                    : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 text-zinc-700 dark:text-zinc-300"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <BookmarkPlus size={18} className={isSaved ? "text-indigo-500" : "text-zinc-400"} />
+                  <span className="font-medium">{folder.name}</span>
+                </div>
+                {isSaved ? (
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
+                    <CheckCircle2 size={16} />
+                    Saved
+                  </div>
+                ) : (
+                  <span className="text-xs text-zinc-400">Click to save</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="p-6 bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-100 dark:border-zinc-800">
+          {isAddingFolder ? (
+            <div className="flex gap-2">
+              <input 
+                autoFocus
+                type="text" 
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="New folder name..."
+                className="flex-1 px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                onKeyDown={(e) => e.key === 'Enter' && onAddFolder()}
+              />
+              <button 
+                onClick={onAddFolder}
+                disabled={!newFolderName.trim()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 disabled:opacity-50"
+              >
+                Create
+              </button>
+              <button 
+                onClick={() => setIsAddingFolder(false)}
+                className="p-2 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setIsAddingFolder(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl text-zinc-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-800 transition-all text-sm font-medium"
+            >
+              <BookmarkPlus size={18} />
+              Create New Folder
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -636,6 +777,12 @@ function App() {
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [sentenceToDelete, setSentenceToDelete] = useState<string | null>(null);
+  const [isFolderSelectOpen, setIsFolderSelectOpen] = useState(false);
+  const [itemToSave, setItemToSave] = useState<{ 
+    type: 'sentence' | 'word' | 'example', 
+    data: any,
+    savedInFolders: string[]
+  } | null>(null);
   const creatingDefaultFolder = React.useRef(false);
 
   useEffect(() => {
@@ -846,141 +993,23 @@ function App() {
 
   const handleSave = async () => {
     if (!user || !analysis) return;
-    try {
-      const defaultFolder = folders.find(f => f.isDefault);
-      if (!defaultFolder) {
-        toast.error("Default folder not found.");
-        return;
-      }
-
-      // Check for duplicates in the default folder
-      const existingFlashcard = flashcards.find(c => 
-        c.folderId === defaultFolder.id && 
-        c.front === analysis.originalText
-      );
-
-      const existingSentence = savedSentences.find(s => 
-        s.originalText === analysis.originalText
-      );
-
-      if (existingFlashcard || existingSentence) {
-        // Unsave
-        if (existingFlashcard) {
-          await deleteDoc(doc(db, 'flashcards', existingFlashcard.id));
-        }
-        if (existingSentence) {
-          await deleteDoc(doc(db, 'sentences', existingSentence.id));
-        }
-        toast.success("Removed from library");
-        return;
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, ...analysisData } = analysis as any;
-
-      await addDoc(collection(db, 'sentences'), {
-        ...analysisData,
-        userId: user.uid,
-        createdAt: serverTimestamp(),
-        isLearned: false
-      });
-
-      // Also add to default folder as a flashcard
-      await addDoc(collection(db, 'flashcards'), {
-        folderId: defaultFolder.id,
-        front: analysis.originalText,
-        back: analysis.translatedText,
-        pinyin: analysis.pinyin || '',
-        tokens: analysis.tokens || null,
-        description: `${analysis.grammar}\n\n---\n\n${analysis.contextUsage}\n\n${analysis.contextExamples?.map(ex => `${ex.text} (${ex.pinyin} - ${ex.translation})`).join('\n') || ''}`,
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
-      
-      toast.success("Sentence saved to library!");
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'sentences/flashcards');
-      toast.error("Failed to save sentence.");
-    }
+    const savedIn = savedSentences.filter(s => s.originalText === analysis.originalText).map(s => s.folderId);
+    setItemToSave({ type: 'sentence', data: analysis, savedInFolders: savedIn });
+    setIsFolderSelectOpen(true);
   };
 
   const handleSaveWord = async (word: WordBreakdown) => {
     if (!user) return;
-    try {
-      const defaultFolder = folders.find(f => f.isDefault);
-      const folderId = activeFolderId || defaultFolder?.id;
-      if (!folderId) {
-        toast.error("No folder found to save the word.");
-        return;
-      }
-
-      // Check for duplicates in the target folder
-      const existingFlashcard = flashcards.find(c => 
-        c.folderId === folderId && 
-        c.front === word.word
-      );
-
-      if (existingFlashcard) {
-        // Unsave
-        await deleteDoc(doc(db, 'flashcards', existingFlashcard.id));
-        toast.success(`"${word.word}" removed from flashcards`);
-        return;
-      }
-
-      await addDoc(collection(db, 'flashcards'), {
-        folderId,
-        front: word.word,
-        back: word.translation,
-        pinyin: word.pinyin || '',
-        description: word.definition,
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
-
-      toast.success(`"${word.word}" saved to flashcards!`);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'flashcards');
-      toast.error("Failed to save word.");
-    }
+    const savedIn = flashcards.filter(c => c.front === word.word).map(c => c.folderId);
+    setItemToSave({ type: 'word', data: word, savedInFolders: savedIn });
+    setIsFolderSelectOpen(true);
   };
 
   const handleSaveExample = async (example: ContextExample) => {
     if (!user) return;
-    try {
-      const defaultFolder = folders.find(f => f.isDefault);
-      const folderId = activeFolderId || defaultFolder?.id;
-      if (!folderId) {
-        toast.error("No folder found to save the example.");
-        return;
-      }
-
-      // Check for duplicates in the target folder
-      const existingFlashcard = flashcards.find(c => 
-        c.folderId === folderId && 
-        c.front === example.text
-      );
-
-      if (existingFlashcard) {
-        // Unsave
-        await deleteDoc(doc(db, 'flashcards', existingFlashcard.id));
-        toast.success(`Example removed from flashcards`);
-        return;
-      }
-
-      await addDoc(collection(db, 'flashcards'), {
-        folderId,
-        front: example.text,
-        back: example.translation,
-        pinyin: example.pinyin || '',
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
-
-      toast.success(`Example saved to flashcards!`);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'flashcards');
-      toast.error("Failed to save example.");
-    }
+    const savedIn = flashcards.filter(c => c.front === example.text).map(c => c.folderId);
+    setItemToSave({ type: 'example', data: example, savedInFolders: savedIn });
+    setIsFolderSelectOpen(true);
   };
 
   const handleCreateFolder = async () => {
@@ -991,17 +1020,73 @@ function App() {
       return;
     }
     
+    setIsAddingFolder(true);
     try {
       await addDoc(collection(db, 'folders'), {
-        name: newFolderName,
+        name: newFolderName.trim(),
         userId: user.uid,
         createdAt: serverTimestamp(),
         isDefault: false
       });
       setNewFolderName('');
       setIsAddingFolder(false);
+      toast.success('Folder created');
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'folders');
+      console.error('Error adding folder:', error);
+      toast.error('Failed to create folder');
+      setIsAddingFolder(false);
+    }
+  };
+
+  const handleSelectFolder = async (folderId: string) => {
+    if (!user || !itemToSave) return;
+    
+    try {
+      const { type, data } = itemToSave;
+      
+      if (type === 'sentence') {
+        const existing = savedSentences.find(s => s.originalText === data.originalText && s.folderId === folderId);
+        if (existing) {
+          await deleteDoc(doc(db, 'sentences', existing.id));
+          toast.success("Removed from folder");
+          setItemToSave(prev => prev ? { ...prev, savedInFolders: prev.savedInFolders.filter(id => id !== folderId) } : null);
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { id: _id, ...analysisData } = data as any;
+          await addDoc(collection(db, 'sentences'), {
+            ...analysisData,
+            folderId,
+            userId: user.uid,
+            createdAt: serverTimestamp(),
+            isLearned: false
+          });
+          toast.success("Saved to folder");
+          setItemToSave(prev => prev ? { ...prev, savedInFolders: [...prev.savedInFolders, folderId] } : null);
+        }
+      } else if (type === 'word' || type === 'example') {
+        const front = type === 'word' ? data.word : data.text;
+        const existing = flashcards.find(c => c.front === front && c.folderId === folderId);
+        if (existing) {
+          await deleteDoc(doc(db, 'flashcards', existing.id));
+          toast.success("Removed from folder");
+          setItemToSave(prev => prev ? { ...prev, savedInFolders: prev.savedInFolders.filter(id => id !== folderId) } : null);
+        } else {
+          await addDoc(collection(db, 'flashcards'), {
+            folderId,
+            front,
+            back: data.translation,
+            pinyin: data.pinyin || '',
+            description: type === 'word' ? (data.definition || data.context || '') : '',
+            userId: user.uid,
+            createdAt: serverTimestamp()
+          });
+          toast.success("Saved to folder");
+          setItemToSave(prev => prev ? { ...prev, savedInFolders: [...prev.savedInFolders, folderId] } : null);
+        }
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'save_to_folder');
+      toast.error("Failed to update folder.");
     }
   };
 
@@ -1102,8 +1187,29 @@ function App() {
     }
   };
 
-  const activeFolderCards = flashcards.filter(c => c.folderId === activeFolderId);
+  const activeFolderCards = [
+    ...flashcards.filter(c => c.folderId === activeFolderId),
+    ...savedSentences.filter(s => s.folderId === activeFolderId).map(s => ({
+      id: s.id,
+      folderId: s.folderId,
+      front: s.originalText,
+      back: s.translatedText,
+      pinyin: s.pinyin || '',
+      description: s.grammar,
+      userId: s.userId,
+      createdAt: s.createdAt,
+      tokens: s.tokens
+    }))
+  ].sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0;
+    const bTime = b.createdAt?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+
   const isCurrentAnalysisSaved = analysis && savedSentences.some(s => s.originalText === analysis.originalText);
+  const currentSavedInFolders = analysis 
+    ? savedSentences.filter(s => s.originalText === analysis.originalText).map(s => s.folderId)
+    : [];
 
 return (
   <>
@@ -1347,20 +1453,40 @@ return (
                            <div>
                              {/* If original text is Chinese (not English-like) and we have tokens */}
                              {analysis.tokens && !analysis.originalText.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/) ? (
-                               <div className="flex flex-wrap gap-x-2 md:gap-x-4 gap-y-4 md:gap-y-8 mb-4">
-                                 {analysis.tokens.map((token, idx) => (
-                                   <div key={idx} className="flex flex-col items-center">
-                                     <span className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white leading-none">{token.text}</span>
-                                     {token.pinyin && (
-                                       <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
-                                         {token.pinyin}
-                                       </span>
-                                     )}
-                                   </div>
-                                 ))}
+                               <div className="flex items-center gap-4 mb-4">
+                                 <div className="flex flex-wrap gap-x-2 md:gap-x-4 gap-y-4 md:gap-y-8">
+                                   {analysis.tokens.map((token, idx) => (
+                                     <div key={idx} className="flex flex-col items-center">
+                                       <span className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white leading-none">{token.text}</span>
+                                       {token.pinyin && (
+                                         <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
+                                           {token.pinyin}
+                                         </span>
+                                       )}
+                                     </div>
+                                   ))}
+                                 </div>
+                                 <button 
+                                   onClick={() => playAudio(analysis.originalText)}
+                                   className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                   title="Play pronunciation"
+                                 >
+                                   <Volume2 size={24} />
+                                 </button>
                                </div>
                              ) : (
-                               <h2 className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white mb-2 leading-tight">{analysis.originalText}</h2>
+                               <div className="flex items-center gap-4 mb-2">
+                                 <h2 className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white leading-tight">{analysis.originalText}</h2>
+                                 {!analysis.originalText.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/) && (
+                                   <button 
+                                     onClick={() => playAudio(analysis.originalText)}
+                                     className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                     title="Play pronunciation"
+                                   >
+                                     <Volume2 size={24} />
+                                   </button>
+                                 )}
+                               </div>
                              )}
                            </div>
                            
@@ -1369,20 +1495,40 @@ return (
                            <div>
                              {/* If translated text is Chinese (original IS English-like) and we have tokens */}
                              {analysis.tokens && analysis.originalText.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/) ? (
-                               <div className="flex flex-wrap gap-x-2 md:gap-x-4 gap-y-4 md:gap-y-8">
-                                 {analysis.tokens.map((token, idx) => (
-                                   <div key={idx} className="flex flex-col items-center">
-                                     <span className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white leading-none">{token.text}</span>
-                                     {token.pinyin && (
-                                       <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
-                                         {token.pinyin}
-                                       </span>
-                                     )}
-                                   </div>
-                                 ))}
+                               <div className="flex items-center gap-4">
+                                 <div className="flex flex-wrap gap-x-2 md:gap-x-4 gap-y-4 md:gap-y-8">
+                                   {analysis.tokens.map((token, idx) => (
+                                     <div key={idx} className="flex flex-col items-center">
+                                       <span className="text-2xl md:text-4xl font-serif text-zinc-900 dark:text-white leading-none">{token.text}</span>
+                                       {token.pinyin && (
+                                         <span className="text-xs md:text-base font-medium text-indigo-600 dark:text-indigo-400 mt-2 md:mt-3 font-sans lowercase tracking-tighter">
+                                           {token.pinyin}
+                                         </span>
+                                       )}
+                                     </div>
+                                   ))}
+                                 </div>
+                                 <button 
+                                   onClick={() => playAudio(analysis.translatedText)}
+                                   className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                   title="Play pronunciation"
+                                 >
+                                   <Volume2 size={24} />
+                                 </button>
                                </div>
                              ) : (
-                               <p className="text-lg md:text-2xl text-zinc-600 dark:text-zinc-400 font-serif italic">{analysis.translatedText}</p>
+                               <div className="flex items-center gap-4">
+                                 <p className="text-lg md:text-2xl text-zinc-600 dark:text-zinc-400 font-serif italic">{analysis.translatedText}</p>
+                                 {analysis.originalText.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/) && (
+                                   <button 
+                                     onClick={() => playAudio(analysis.translatedText)}
+                                     className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                     title="Play pronunciation"
+                                   >
+                                     <Volume2 size={24} />
+                                   </button>
+                                 )}
+                               </div>
                              )}
                            </div>
                          </div>
@@ -1403,6 +1549,13 @@ return (
                                     <div className="flex items-baseline gap-2 md:gap-3">
                                       <span className="text-xl md:text-3xl font-serif font-bold text-zinc-900 dark:text-white">{item.word}</span>
                                       {item.pinyin && <span className="text-base md:text-lg font-medium text-indigo-600 dark:text-indigo-400 lowercase">{item.pinyin}</span>}
+                                      <button 
+                                        onClick={() => playAudio(item.word)}
+                                        className="ml-1 text-zinc-400 hover:text-indigo-600 transition-colors"
+                                        title="Play pronunciation"
+                                      >
+                                        <Volume2 size={18} />
+                                      </button>
                                     </div>
                                     {user && (
                                       <button 
@@ -1445,7 +1598,7 @@ return (
                               {analysis.contextExamples && analysis.contextExamples.length > 0 && (
                                 <div className="space-y-6 pt-2">
                                   {analysis.contextExamples.map((ex, idx) => {
-                                    const isSaved = flashcards.some(c => c.front === ex.text && (activeFolderId ? c.folderId === activeFolderId : true));
+                                    const isSaved = flashcards.some(c => c.front === ex.text);
                                     return (
                                       <div key={idx} className="space-y-3 relative group/ex">
                                         <div className="flex justify-between items-start">
@@ -1682,6 +1835,22 @@ return (
           </div>
         </div>
       </main>
+
+      <FolderSelectModal 
+        isOpen={isFolderSelectOpen}
+        onClose={() => {
+          setIsFolderSelectOpen(false);
+          setItemToSave(null);
+        }}
+        folders={folders}
+        onSelect={handleSelectFolder}
+        onAddFolder={handleCreateFolder}
+        newFolderName={newFolderName}
+        setNewFolderName={setNewFolderName}
+        isAddingFolder={isAddingFolder}
+        setIsAddingFolder={setIsAddingFolder}
+        savedInFolders={itemToSave?.savedInFolders || []}
+      />
 
       <style>{`
         .perspective-1000 { perspective: 1000px; }

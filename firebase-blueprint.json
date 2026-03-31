@@ -61,6 +61,10 @@
           "type": "string",
           "description": "Grammar or contextual explanation."
         },
+        "folderId": {
+          "type": "string",
+          "description": "The ID of the folder where this sentence is saved."
+        },
         "userId": {
           "type": "string",
           "description": "The UID of the user who saved the sentence."

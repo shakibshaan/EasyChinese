@@ -222,9 +222,9 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
     const actualShowChinese = showChinese || (!showChinese && !pinyin);
     return (
       <div className={cn("flex flex-col", size === 'lg' ? "items-center" : "items-start")}>
-        {actualShowChinese && <span className={cn("font-serif leading-tight text-zinc-900 dark:text-white", size === 'lg' ? (showPinyin ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl") : "text-xl")}>{text}</span>}
+        {actualShowChinese && <span className={cn("font-serif leading-tight text-zinc-900 dark:text-white", size === 'lg' ? (showPinyin ? "text-3xl md:text-5xl" : "text-4xl md:text-6xl") : "text-2xl")}>{text}</span>}
         {showPinyin && pinyin && (
-          <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (actualShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl") : "text-sm mt-0.5")}>
+          <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (actualShowChinese ? "text-sm md:text-base mt-1" : "text-3xl md:text-5xl") : "text-base mt-1")}>
             {pinyin}
           </span>
         )}
@@ -239,9 +239,9 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
         const tokenShowChinese = showChinese || isPunctuation;
         return (
           <div key={idx} className="flex flex-col items-center justify-end">
-            {tokenShowChinese && <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", size === 'lg' ? (showPinyin && !isPunctuation ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl") : "text-xl")}>{token.text}</span>}
+            {tokenShowChinese && <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", size === 'lg' ? (showPinyin && !isPunctuation ? "text-3xl md:text-5xl" : "text-4xl md:text-6xl") : "text-2xl")}>{token.text}</span>}
             {showPinyin && token.pinyin && (
-              <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (tokenShowChinese ? "text-xs md:text-sm mt-1" : "text-2xl md:text-4xl") : "text-sm mt-0.5")}>
+              <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (tokenShowChinese ? "text-sm md:text-base mt-1" : "text-3xl md:text-5xl") : "text-base mt-1")}>
                 {token.pinyin}
               </span>
             )}
@@ -333,12 +333,12 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
                       <Volume2 size={24} />
                     </button>
                   </div>
-                  <p className="text-xl md:text-2xl font-serif text-zinc-800 dark:text-zinc-200 mt-4 text-center">{englishText}</p>
+                  <p className="text-2xl md:text-3xl font-serif text-zinc-800 dark:text-zinc-200 mt-4 text-center">{englishText}</p>
                 </div>
 
                 {card.description && (
                   <div className="w-full text-left bg-white dark:bg-zinc-900 p-3 md:p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mt-2">
-                    <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{card.description}</p>
+                    <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{card.description}</p>
                   </div>
                 )}
               </div>

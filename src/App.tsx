@@ -227,8 +227,8 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
             "font-serif leading-tight text-zinc-900 dark:text-white", 
             size === 'lg' 
               ? (showPinyin 
-                  ? (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl") 
-                  : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl")) 
+                  ? (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl") 
+                  : (isLibrary ? "text-7xl md:text-8xl" : "text-4xl md:text-6xl")) 
               : "text-2xl"
           )}>
             {text}
@@ -239,8 +239,8 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
             "font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", 
             size === 'lg' 
               ? (actualShowChinese 
-                  ? (isLibrary ? "text-lg md:text-xl mt-1" : "text-sm md:text-base mt-1") 
-                  : (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl")) 
+                  ? (isLibrary ? "text-xl md:text-2xl mt-1" : "text-sm md:text-base mt-1") 
+                  : (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl")) 
               : "text-base mt-1"
           )}>
             {pinyin}
@@ -262,8 +262,8 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                 "font-serif text-zinc-900 dark:text-white leading-none", 
                 size === 'lg' 
                   ? (showPinyin && !isPunctuation 
-                      ? (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl") 
-                      : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl")) 
+                      ? (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl") 
+                      : (isLibrary ? "text-7xl md:text-8xl" : "text-4xl md:text-6xl")) 
                   : "text-2xl"
               )}>
                 {token.text}
@@ -274,8 +274,8 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                 "font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", 
                 size === 'lg' 
                   ? (tokenShowChinese 
-                      ? (isLibrary ? "text-lg md:text-xl mt-1" : "text-sm md:text-base mt-1") 
-                      : (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl")) 
+                      ? (isLibrary ? "text-xl md:text-2xl mt-1" : "text-sm md:text-base mt-1") 
+                      : (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl")) 
                   : "text-base mt-1"
               )}>
                 {token.pinyin}
@@ -2150,13 +2150,17 @@ return (
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="lg:hidden fixed left-0 top-0 bottom-0 w-8 z-40"
+            className="lg:hidden fixed left-0 top-0 bottom-0 w-8 z-40 flex items-center justify-center"
             onPan={(e, info) => {
               if (info.offset.x > 40) {
                 setIsSidebarOpen(true);
               }
             }}
-          />
+          >
+            <div className="w-1 h-12 bg-zinc-300 dark:bg-zinc-700 rounded-full flex items-center justify-center">
+              <ChevronRight size={16} className="text-zinc-500" />
+            </div>
+          </motion.div>
         )}
         {isSidebarOpen && (
           <>
@@ -2219,13 +2223,13 @@ return (
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Header */}
-        <header className="sticky top-0 h-14 md:h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-30">
+        <header className="sticky top-0 h-16 md:h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-30">
           <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-3 md:p-2 -ml-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="p-4 md:p-2 -ml-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
             >
-              <Menu size={18} className="text-zinc-600 dark:text-zinc-400" />
+              <Menu size={24} className="text-zinc-600 dark:text-zinc-400" />
             </button>
             <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">EasyChinese</h1>
           </div>

@@ -1781,6 +1781,11 @@ function App() {
           for (const card of folderCards) {
             await deleteDoc(doc(db, 'flashcards', card.id));
           }
+          const folderSentences = savedSentences.filter(s => s.folderId === folder.id);
+          for (const sentence of folderSentences) {
+            await deleteDoc(doc(db, 'sentences', sentence.id));
+            setRecentAnalyses(prev => prev.filter(a => a.originalText !== sentence.originalText));
+          }
           await deleteDoc(doc(db, 'folders', folder.id));
         } catch (error) {
           console.error("Cleanup failed for folder:", folder.id, error);
@@ -1789,7 +1794,7 @@ function App() {
     };
 
     cleanupDuplicates();
-  }, [user, folders, flashcards]);
+  }, [user, folders, flashcards, savedSentences]);
 
   useEffect(() => {
     const saved = localStorage.getItem('hanzi_flow_recent_analyses_v4');
@@ -1917,6 +1922,7 @@ function App() {
       if (type === 'sentence') {
         if (isRemoving && existingId) {
           await deleteDoc(doc(db, 'sentences', existingId));
+          setRecentAnalyses(prev => prev.filter(a => a.originalText !== (data as any).originalText));
           toast.success("Removed from folder");
         } else {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -2046,6 +2052,13 @@ function App() {
         await deleteDoc(doc(db, 'flashcards', card.id));
       }
 
+      // Delete all sentences in this folder
+      const folderSentences = savedSentences.filter(s => s.folderId === folderId);
+      for (const sentence of folderSentences) {
+        await deleteDoc(doc(db, 'sentences', sentence.id));
+        setRecentAnalyses(prev => prev.filter(a => a.originalText !== sentence.originalText));
+      }
+
       // Delete the folder
       await deleteDoc(doc(db, 'folders', folderId));
 
@@ -2073,7 +2086,7 @@ function App() {
         isSystem: true
       })) || [])
     : [
-        ...flashcards.filter(c => c.folderId === activeFolderId),
+        ...flashcards.filter(c => c.folderId === activeFolderId).map(c => ({ ...c, type: 'flashcard' as const })),
         ...savedSentences.filter(s => s.folderId === activeFolderId).map(s => ({
           id: s.id,
           folderId: s.folderId,
@@ -2083,7 +2096,8 @@ function App() {
           description: s.grammar,
           userId: s.userId,
           createdAt: s.createdAt,
-          tokens: s.tokens
+          tokens: s.tokens,
+          type: 'sentence' as const
         }))
       ].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
@@ -2599,13 +2613,19 @@ return (
                             onPrev={() => setFlashcardIndex((flashcardIndex - 1 + activeFolderCards.length) % activeFolderCards.length)}
                             onDelete={isLibraryView ? undefined : async (id) => {
                               try {
-                                await deleteDoc(doc(db, 'flashcards', id));
-                                toast.success("Flashcard deleted");
+                                const cardToDelete = activeFolderCards.find(c => c.id === id);
+                                if (cardToDelete?.type === 'sentence') {
+                                  await deleteDoc(doc(db, 'sentences', id));
+                                  setRecentAnalyses(prev => prev.filter(a => a.originalText !== cardToDelete.front));
+                                } else {
+                                  await deleteDoc(doc(db, 'flashcards', id));
+                                }
+                                toast.success("Deleted successfully");
                                 if (flashcardIndex >= activeFolderCards.length - 1 && flashcardIndex > 0) {
                                   setFlashcardIndex(flashcardIndex - 1);
                                 }
                               } catch (error) {
-                                handleFirestoreError(error, OperationType.DELETE, 'flashcards');
+                                handleFirestoreError(error, OperationType.DELETE, cardToDelete?.type === 'sentence' ? 'sentences' : 'flashcards');
                               }
                             }}
                           />

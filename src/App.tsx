@@ -17,6 +17,7 @@ import {
   Menu,
   FileText,
   Trophy,
+  Folder as FolderIcon,
   BookmarkPlus,
   CheckCircle2,
   Loader2,
@@ -25,7 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc, getDocFromServer } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc, getDocFromServer, setDoc } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, ContextExample } from './services/geminiService';
 import { cn, playAudio } from './lib/utils';
@@ -47,6 +48,22 @@ interface Folder {
   userId: string;
   createdAt: any;
   isDefault?: boolean;
+  parentId?: string | null;
+  isSystem?: boolean;
+}
+
+interface SystemWord {
+  word: string;
+  pinyin: string;
+  pos: string;
+  meaning: string;
+  lesson: string;
+}
+
+interface SystemContent {
+  id: string;
+  folderId: string;
+  words: SystemWord[];
 }
 
 interface FlashcardData {
@@ -236,7 +253,7 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
 };
 
 const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode, setPinyinMode }: { 
-  card: FlashcardData | undefined; 
+  card: (FlashcardData | any) & { isSystem?: boolean }; 
   onNext: () => void; 
   onPrev: () => void;
   onDelete?: (id: string) => void;
@@ -274,7 +291,11 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
         <motion.div 
           className="relative w-full h-full transition-all duration-500 preserve-3d cursor-pointer"
           animate={{ rotateY: isFlipped ? 180 : 0 }}
-          onClick={() => setIsFlipped(!isFlipped)}
+          onTap={() => setIsFlipped(!isFlipped)}
+          onPanEnd={(e, info) => {
+            if (info.offset.x < -50) onNext();
+            else if (info.offset.x > 50) onPrev();
+          }}
         >
           {/* Front */}
           <div className="absolute inset-0 backface-hidden bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xl shadow-indigo-500/5 overflow-hidden">
@@ -369,6 +390,13 @@ interface SidebarProps {
   folders: Folder[];
   activeFolderId: string | null;
   setActiveFolderId: (id: string | null) => void;
+  systemFolders: Folder[];
+  activeSystemFolderId: string | null;
+  setActiveSystemFolderId: (id: string | null) => void;
+  isLibraryView: boolean;
+  setIsLibraryView: (view: boolean) => void;
+  bootstrapSystemData: () => Promise<void>;
+  isBootstrapping: boolean;
   flashcards: FlashcardData[];
   setFlashcardIndex: (index: number) => void;
   setViewMode: (mode: 'analysis' | 'flashcards' | 'test' | 'results') => void;
@@ -394,6 +422,13 @@ const SidebarContent = ({
   folders,
   activeFolderId,
   setActiveFolderId,
+  systemFolders,
+  activeSystemFolderId,
+  setActiveSystemFolderId,
+  isLibraryView,
+  setIsLibraryView,
+  bootstrapSystemData,
+  isBootstrapping,
   flashcards,
   setFlashcardIndex,
   setViewMode,
@@ -418,10 +453,85 @@ const SidebarContent = ({
     
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       <div className="p-4 space-y-8">
+        {/* Library Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">Library</h3>
+            {user?.email === "shaanshakib5@gmail.com" && (
+              <button 
+                onClick={bootstrapSystemData} 
+                disabled={isBootstrapping}
+                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wider p-2 -mr-2 disabled:opacity-50"
+              >
+                {isBootstrapping ? "..." : "Bootstrap"}
+              </button>
+            )}
+          </div>
+          <div className="space-y-1">
+            {systemFolders.filter(f => !f.parentId).map(f => {
+              const hasChildren = systemFolders.some(sf => sf.parentId === f.id);
+              return (
+                <div key={f.id} className="group relative">
+                  <div 
+                    onClick={() => { 
+                      setActiveSystemFolderId(f.id);
+                      setActiveFolderId(null);
+                      setIsLibraryView(true);
+                      setFlashcardIndex(0);
+                      setViewMode('flashcards');
+                      if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
+                      activeSystemFolderId === f.id && isLibraryView ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Trophy size={16} />
+                      <span className="font-medium truncate max-w-[140px]">{f.name}</span>
+                    </div>
+                    {hasChildren && (
+                      <ChevronRight 
+                        size={14} 
+                        className={cn("transition-transform", activeSystemFolderId === f.id ? "rotate-90" : "")} 
+                      />
+                    )}
+                  </div>
+                  {/* Subfolders */}
+                  {activeSystemFolderId === f.id && hasChildren && (
+                    <div className="ml-4 mt-1 space-y-1 border-l border-zinc-200 dark:border-zinc-800 pl-2">
+                      {systemFolders.filter(sf => sf.parentId === f.id).map(sf => (
+                        <div 
+                          key={sf.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSystemFolderId(sf.id);
+                            setActiveFolderId(null);
+                            setIsLibraryView(true);
+                            setFlashcardIndex(0);
+                            setViewMode('flashcards');
+                            if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between p-2 rounded-lg transition-all text-xs cursor-pointer",
+                            activeSystemFolderId === sf.id && isLibraryView ? "bg-indigo-500/10 text-indigo-500 font-bold" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-500 dark:text-zinc-500"
+                          )}
+                        >
+                          <span className="truncate">{sf.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Folders Section */}
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
-            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">Folders</h3>
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">My Folders</h3>
             <button onClick={() => setIsAddingFolder(true)} className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wider p-2 -mr-2">+ New Folder</button>
           </div>
 
@@ -457,13 +567,15 @@ const SidebarContent = ({
                 <div 
                   onClick={() => { 
                     setActiveFolderId(f.id); 
+                    setActiveSystemFolderId(null);
+                    setIsLibraryView(false);
                     setFlashcardIndex(0);
                     setViewMode('flashcards');
                     if (window.innerWidth < 1024) setIsSidebarOpen(false);
                   }}
                   className={cn(
                     "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
-                    activeFolderId === f.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                    activeFolderId === f.id && !isLibraryView ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -756,6 +868,11 @@ function App() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [flashcards, setFlashcards] = useState<FlashcardData[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [systemFolders, setSystemFolders] = useState<Folder[]>([]);
+  const [systemContent, setSystemContent] = useState<SystemContent[]>([]);
+  const [activeSystemFolderId, setActiveSystemFolderId] = useState<string | null>(null);
+  const [isLibraryView, setIsLibraryView] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'analysis' | 'flashcards' | 'test' | 'results'>('analysis');
   const [flashcardIndex, setFlashcardIndex] = useState(0);
@@ -865,6 +982,416 @@ function App() {
 
     return () => { unsubSentences(); unsubFolders(); unsubCards(); };
   }, [user]);
+
+  // User Sync
+  useEffect(() => {
+    if (user && isAuthReady) {
+      const syncUser = async () => {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDocFromServer(userRef);
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              name: user.displayName,
+              email: user.email,
+              photoUrl: user.photoURL,
+              role: 'user',
+              createdAt: serverTimestamp()
+            });
+          }
+        } catch (error) {
+          console.error("User sync error:", error);
+        }
+      };
+      syncUser();
+    }
+  }, [user, isAuthReady]);
+
+  // System Folders Listener
+  useEffect(() => {
+    const qSystemFolders = query(collection(db, 'system_folders'), orderBy('name'));
+    const unsubSystemFolders = onSnapshot(qSystemFolders, (s) => {
+      setSystemFolders(s.docs.map(d => ({ ...d.data(), id: d.id, isSystem: true })) as Folder[]);
+    });
+
+    const qSystemContent = query(collection(db, 'system_content'));
+    const unsubSystemContent = onSnapshot(qSystemContent, (s) => {
+      setSystemContent(s.docs.map(d => ({ ...d.data(), id: d.id })) as SystemContent[]);
+    });
+
+    return () => { unsubSystemFolders(); unsubSystemContent(); };
+  }, []);
+
+  // Bootstrap System Data
+  const bootstrapSystemData = async () => {
+    if (!user || user.email !== "shaanshakib5@gmail.com" || isBootstrapping) return;
+    
+    setIsBootstrapping(true);
+    const toastId = toast.loading("Bootstrapping HSK data...");
+    
+    try {
+      // Check if "All HSK" exists
+      const hskRoot = systemFolders.find(f => f.name === "All HSK" && !f.parentId);
+      let rootId = hskRoot?.id;
+
+      if (!rootId) {
+        const docRef = await addDoc(collection(db, 'system_folders'), {
+          name: "All HSK",
+          parentId: null,
+          createdAt: serverTimestamp()
+        });
+        rootId = docRef.id;
+      }
+
+      // Check if "hsk 4 下" exists
+      const hsk4Sub = systemFolders.find(f => f.name === "hsk 4 下" && f.parentId === rootId);
+      let subId = hsk4Sub?.id;
+
+      if (!subId) {
+        const docRef = await addDoc(collection(db, 'system_folders'), {
+          name: "hsk 4 下",
+          parentId: rootId,
+          createdAt: serverTimestamp()
+        });
+        subId = docRef.id;
+      }
+
+      // Check if content exists for "hsk 4 下"
+      const existingContent = systemContent.find(c => c.folderId === subId);
+      if (!existingContent) {
+        const csvData = `11,流利,liúlì,adj,fluent
+11,厉害,lìhai,adj,awesome, serious
+11,语法,yǔfǎ,n,grammar
+11,准确,zhǔnquè,adj,accurate, precise
+11,词语,cíyǔ,n,word, expression
+11,连,lián,prep,even
+11,阅读,yuèdú,v,to read
+11,来得及,láidejí,v,there's still time (to do sth.)
+11,复杂,fùzá,adj,complicated
+11,只好,zhǐhǎo,adv,cannot but, to be forced to
+11,填空,tián kòng,v,to fill in a blank
+11,猜,cāi,v,to guess
+11,否则,fǒuzé,conj,or, otherwise
+11,客厅,kètīng,n,living room
+11,无论,wúlùn,conj,regardless of, no matter (what, how, when, etc.)
+11,杂志,zázhì,n,magazine
+11,著名,zhùmíng,adj,famous, well-known
+11,页,yè,m,page
+11,增加,zēngjiā,v,to increase, to add
+11,文章,wénzhāng,n,essay, article
+11,之,zhī,part,connecting the modifier and the word modified
+11,内容,nèiróng,n,content
+11,然而,rán'ér,conj,but, however
+11,看法,kànfǎ,n,viewpoint, opinion
+11,相同,xiāngtóng,adj,same
+11,顺序,shùnxù,n,order, sequence
+11,表示,biǎoshì,v,to express, to indicate
+11,养成,yǎngchéng,v,to develop, to form
+11,同时,tóngshí,conj,at the same time, meanwhile
+11,精彩,jīngcǎi,adj,wonderful, splendid
+12,规定,guīdìng,n,rule, regulation
+12,死,sǐ,adj,rigid, inflexible
+12,可惜,kěxī,adj,pitiful, regretful
+12,全部,quánbù,n,all, whole
+12,也许,yěxǔ,adv,maybe, perhaps
+12,商量,shāngliang,v,to discuss, to consult
+12,并且,bìngqiě,conj,and
+12,盐,yán,n,salt
+12,勺(子),sháo (zi),n,spoon
+12,保护,bǎohù,v,to protect
+12,作用,zuòyòng,n,function
+12,无法,wúfǎ,v,cannot, to be unable (to do sth.)
+12,无,wú,v,not to have, to be without
+12,节,jié,m,section, length
+12,详细,xiángxì,adj,detailed
+12,解释,jiěshì,v,to explain
+12,对于,duìyú,prep,for, to, with regard to
+12,叶子,yèzi,n,leaf
+12,教育,jiàoyù,v,to educate
+12,使用,shǐyòng,v,to use
+12,语言,yǔyán,n,language
+12,直接,zhíjiē,adj,direct, straight
+12,引起,yǐnqǐ,v,to cause, to lead to
+12,误会,wùhuì,n,misunderstanding
+12,友好,yǒuhǎo,adj,friendly
+12,事半功倍,shì bàn gōng bèi,,to achieve twice the result with half the effort
+12,节约,jiéyuē,v,to economize, to save
+12,力气,lìqi,n,physical strength, effort
+12,相反,xiāngfǎn,conj,on the contrary
+12,任务,rènwu,n,task, mission
+12,意见,yìjiàn,n,opinion, suggestion
+12,仔细,zǐxì,adj,careful, meticulous
+12,达到,dádào,v,to reach, to attain
+13,京剧,jīngjù,n,Beijing opera
+13,演员,yǎnyuán,n,actor/actress
+13,观众,guānzhòng,n,audience
+13,厚,hòu,adj,deep, profound
+13,演出,yǎnchū,v,to perform, to put on (a show)
+13,大概,dàgài,adv,roughly, approximately
+13,来自,láizì,v,to be from
+13,遍,biàn,m,(denoting an action from beginning to end) time
+13,偶尔,ǒu'ěr,adv,occasionally, once in a while
+13,吃惊,chī jīng,v,to be surprised, to be shocked
+13,基础,jīchǔ,n,basis, foundation
+13,表演,biǎoyǎn,v,to act, to perform
+13,正常,zhèngcháng,adj,normal, regular
+13,申请,shēnqǐng,v,to apply for
+13,有趣,yǒuqù,adj,interesting, fun
+13,开心,kāixīn,adj,happy, glad
+13,继续,jìxù,v,to go on, to continue
+13,由,yóu,prep,by (sb.)
+13,讨论,tǎolùn,v,to discuss, to talk over
+13,大约,dàyuē,adv,approximately, about
+13,餐厅,cāntīng,n,restaurant
+13,纸袋,zhǐdài,n,paper bag
+13,互联网,hùliánwǎng,n,Internet
+13,进行,jìnxíng,v,to conduct, to carry out
+13,错误,cuòwù,adj,wrong
+13,随着,suízhe,prep,along with, as
+13,十分,shífēn,adv,very, extremely
+13,普遍,pǔbiàn,adj,universal, common
+13,部分,bùfen,n,part
+13,稍微,shāowēi,adv,a little, slightly
+13,苦,kǔ,adj,bitter
+13,省,shěng,n,province
+14,出差,chū chāi,v,to go on a business trip
+14,毛巾,máojīn,n,towel
+14,牙膏,yágāo,n,toothpaste
+14,重,zhòng,adj,heavy, weighty
+14,行,xíng,v,to be OK, to be all right
+14,省,shěng,v,to save, to economize
+14,污染,wūrǎn,v,to pollute
+14,卫生间,wèishēngjiān,n,restroom, bathroom
+14,脏,zāng,adj,dirty
+14,抱歉,bàoqiàn,v,to be sorry
+14,空,kōng,adj,empty
+14,盒子,hézi,n,box, case
+14,扔,rēng,v,to throw away
+14,以,yǐ,prep,via, by means of
+14,速度,sùdù,n,speed
+14,地球,dìqiú,n,earth, globe
+14,既然,jìrán,conj,since, as, now that
+14,停,tíng,v,to stop, to cease
+14,得意,déyì,adj,complacent, gloating
+14,目的,mùdì,n,aim, purpose
+14,暖,nuǎn,adj,warm
+14,塑料袋,sùliàodài,n,plastic bag
+14,于是,yúshì,conj,hence, therefore
+14,鼓励,gǔlì,v,to encourage
+14,拒绝,jùjué,v,to refuse, to reject
+14,减少,jiǎnshǎo,v,to reduce, to decrease
+14,数量,shùliàng,n,quantity, amount
+14,温度,wēndù,n,temperature
+14,乘坐,chéngzuò,v,to take (a vehicle), to ride (in a vehicle)
+14,丢,diū,v,to throw, to cast
+14,垃圾桶,lājītǒng,n,dustbin, trash can
+14,美丽,měilì,adj,beautiful
+15,弹钢琴,tán gāngqín,,to play the piano
+15,棒,bàng,adj,excellent, amazing
+15,孙子,sūnzi,n,grandson
+15,寒假,hánjià,n,winter vacation
+15,父亲,fùqīn,n,father
+15,闹钟,nàozhōng,n,alarm clock
+15,响,xiǎng,v,to sound, to ring
+15,醒,xǐng,v,to wake up, to be awake
+15,赶,gǎn,v,to rush for, to hurry
+15,厕所,cèsuǒ,n,lavatory, toilet
+15,批评,pīpíng,v,to criticize
+15,弄,nòng,v,to do, to make
+15,管理,guǎnlǐ,v,to manage, to administer
+15,打针,dǎ zhēn,v,to give or have an injection
+15,护士,hùshi,n,nurse
+15,表扬,biǎoyáng,v,to praise, to commend
+15,千万,qiānwàn,adv,must, to be sure to
+15,怀疑,huáiyí,v,to suspect, to doubt
+15,故意,gùyì,adv,intentionally, on purpose
+15,敲,qiāo,v,to knock, to beat, to strike
+15,整理,zhěnglǐ,v,to tidy up, to arrange
+15,合适,héshì,adj,fit, suitable
+15,骗,piàn,v,to cheat, to deceive
+15,儿童,értóng,n,children
+15,假,jiǎ,adj,false, fake
+15,左右,zuǒyòu,n,around, or so
+15,懒,lǎn,adj,lazy
+15,笨,bèn,adj,stupid, foolish
+15,粗心,cūxīn,adj,careless, thoughtless
+15,骄傲,jiāo'ào,adj,arrogant, conceited
+15,害羞,hàixiū,v,to be shy, to be timid
+16,博士,bóshì,n,doctor (academic degree)
+16,签证,qiānzhèng,n,visa
+16,报名,bào míng,v,to apply, to sign up
+16,表格,biǎogé,n,form, table
+16,传真,chuánzhēn,v,to send by fax
+16,号码,hàomǎ,n,number
+16,参观,cānguān,v,to visit, to look around
+16,激动,jīdòng,adj,excited, emotional
+16,小伙子,xiǎǒhuǒzi,n,young man
+16,记者,jìzhě,n,journalist, reporter
+16,代表,dàibiǎo,v,to represent, to stand for
+16,恐怕,kǒngpà,adv,(indicating an estimation) I guess...
+16,失望,shīwàng,v,disappointed
+16,郊区,jiāoqū,n,suburb,outskirts
+16,到底,dàodǐ,adv,(used in questions for emphasis)...on earth
+16,呀,ya,part,a variant of the interjection "啊" used at the end of a question to soften the tone
+16,导游,dǎoyóu,n,tour guide
+16,礼貌,lǐmào,adj,polite
+16,原谅,yuánliàng,v,to forgive
+16,挂,guà,v,to hang, to put up
+16,同情,tóngqíng,v,to show sympathy for
+16,推,tuī,v,to put off, to postpone
+16,预习,yùxí,v,to prepare lessons before class
+16,重点,zhòngdiǎn,n,focal point, emphasis
+16,马虎,mǎhu,adj,careless, slipshod
+16,自信,zìxìn,adj,self-confident
+16,冷静,lěngjìng,adj,calm, composed
+16,输,shū,v,to lose, to suffer defeat
+16,重视,zhòngshì,v,to attach importance to
+16,敢,gǎn,v,to dare
+16,尊重,zūnzhòng,v,to respect
+17,凉快,liángkuai,adj,pleasantly cool
+17,热闹,rènao,adj,busy, bustling
+17,云,yún,n,cloud
+17,广播,guǎngbō,n,broadcast, radio program
+17,照,zhào,v,to take a picture, to photograph
+17,倒,dào,adv,(used to indicate contrast) yet, actually
+17,毛,máo,n,hair, fur
+17,抱,bào,v,to hold in the arms, to hug
+17,干,gàn,v,to do, to act
+17,严格,yángé,adj,strict, rigorous
+17,难受,nánshòu,adj,sad, unhappy
+17,趟,tàng,m,(used for a round trip) time
+17,放暑假,fàng shǔjià,,to be on summer vacation
+17,老虎,lǎohǔ,n,tiger
+17,入口,rùkǒu,n,entrance
+17,排队,pái duì,v,to form a line, to line up
+17,活泼,huópō,adj,lively, vivacious
+17,社会,shèhuì,n,society
+17,竞争,jìngzhēng,v,to compete
+17,森林,sēnlín,n,forest
+17,剩,shèng,v,to be left over, to remain
+17,暖和,nuǎnhuo,adj,warm
+17,海洋,hǎiyáng,n,sea, ocean
+17,底,dǐ,n,bottom, base
+17,美人鱼,Měirényú,n,mermaid
+17,公里,gōnglǐ,m,kilometer
+17,仍然,réngrán,adv,still, yet
+17,排列,páiliè,v,to put in order, to arrange
+17,梦,mèng,n,dream
+18,降落,jiàngluò,v,to descend, to land
+18,火,huǒ,adj,hot, popular
+18,作者,zuòzhě,n,author
+18,交通,jiāotōng,n,traffic, communication
+18,技术,jìshù,n,technology
+18,是否,shífǒu,adv,if, whether
+18,秒,miǎo,m,second, 1/60 minute
+18,方式,fāngshì,n,way, mode
+18,受不了,shòubuliǎo,,cannot stand, cannot bear
+18,日记,rìjì,n,diary, journal
+18,安全,ānquán,adj,safe, secure
+18,密码,mìmǎ,n,password
+18,允许,yǔnxǔ,v,to allow, to permit
+18,座,zuò,m,used for bridges, mountains, buildings, etc.
+18,桥,qiáo,n,bridge
+18,危险,wēixiǎn,adj,dangerous
+18,接着,jiēzhe,adv,then, immediately after that
+18,警察,jǐngchá,n,police
+18,抓,zhuā,v,to catch, to arrest
+18,咸,xián,adj,salty
+18,矿泉水,kuàngquánshuǐ,n,mineral water
+18,付款,fù kuǎn,,to pay a sum of money
+18,举,jǔ,v,to give, to enumerate
+18,迷路,mí lù,v,to lose one's way
+18,地址,dìzhǐ,n,address
+18,地点,dìdiǎn,n,place, site
+18,世纪,shìjì,n,century
+18,邮局,yóujú,n,post office
+18,收,shōu,v,to receive
+18,信封,xìnfēng,n,envelope
+18,网站,wǎngzhàn,n,website
+18,信息,xìnxī,n,news, information
+19,学期,xuéqī,n,term, semester
+19,出生,chūshēng,v,to be born
+19,性别,xìngbié,n,sex, gender
+19,道歉,dào qiàn,v,to apologize
+19,打印,dǎyìn,v,to print out
+19,复印,fùyìn,v,to photocopy, to xerox
+19,饺子,jiǎozi,n,jiaozi, dumpling
+19,刀,dāo,n,knife
+19,破,pò,adj,broken, torn
+19,脱,tuō,v,to take off
+19,理发,lǐ fà,v,to get a haircut
+19,包子,bāozi,n,steamed stuffed bun
+19,零钱,língqián,n,small change
+19,打招呼,dǎ zhāohu,v,to greet, to say hello
+19,戴,dài,v,to wear (accessories)
+19,眼镜,yǎnjìng,n,glasses, spectacles
+19,舞蹈,wǔdǎo,n,dance
+19,国籍,guójí,n,nationality, citizenship
+19,抬,tái,v,to lift, to raise
+19,胳膊,gēbo,n,arm
+19,转,zhuǎn,v,to turn, to shift
+19,租,zū,v,to rent, to lease
+19,吵,chǎo,adj,noisy
+19,厨房,chúfáng,n,kitchen
+19,房东,fángdōng,n,landlord/landlady
+19,占线,zhànxiàn,v,(of a telephone line) to be busy, to be engaged
+19,功夫,gōngfu,n,kung fu
+19,乒乓球,pīngpāngqiú,n,table tennis, ping-pong
+19,羽毛球,yǔmáoqiú,n,badminton
+19,场,chǎng,m,used for sports or recreational events, etc.
+19,禁止,jìnzhǐ,v,to prohibit, to forbid
+19,座位,zuòwèi,n,seat
+20,加油站,jiāyóuzhàn,n,gas station
+20,航班,hángbān,n,scheduled flight
+20,推迟,tuīchí,v,to postpone, to delay
+20,高速公路,gāosù gōnglù,,expressway
+20,登机牌,dēngjīpái,n,boarding pass
+20,首都,shǒudū,n,capital (of a country)
+20,旅行,lǚxíng,v,to travel, to tour
+20,怪,guài,adv,rather, quite
+20,可怜,kělián,adj,pitiable, poor
+20,对面,duìmiàn,n,opposite, across
+20,烤鸭,kǎoyā,n,roast duck
+20,祝贺,zhùhè,v,to congratulate
+20,合格,hégé,adj,qualified, up to standard
+20,干杯,gān bēi,v,to drink a toast
+20,民族,mínzú,n,nationality, ethnic group
+20,打扮,dǎban,v,to dress up, to deck out
+20,笑话,xiàohua,n,joke
+20,存,cún,v,to store, to keep
+20,钥匙,yàoshi,n,key
+20,究竟,jiūjìng,adv,(used in questions for emphasis) exactly
+20,棵,kē,m,used for plants
+20,汤,tāng,n,soup
+20,对话,duìhuà,v,to have a dialogue
+20,普通话,pǔtōnghuà,n,Mandarin Chinese
+20,小吃,xiǎochī,n,small and cheap dishes
+20,收拾,shōushi,v,to put in order, to pack
+20,出发,chūfā,v,to depart, to set off
+20,辣,là,adj,hot, spicy
+20,香,xiāng,adj,fragrant, scented
+20,酸,suān,adj,sour, tart`;
+
+        const lines = csvData.split('\n').slice(1); // skip header
+        const words: SystemWord[] = lines.map(line => {
+          const [lesson, word, pinyin, pos, meaning] = line.split(',');
+          return { lesson, word, pinyin, pos, meaning };
+        });
+
+        await addDoc(collection(db, 'system_content'), {
+          folderId: subId,
+          words
+        });
+      }
+
+      toast.success("HSK data bootstrapped successfully!", { id: toastId });
+    } catch (error) {
+      console.error("Bootstrap error:", error);
+      toast.error("Failed to bootstrap HSK data", { id: toastId });
+    } finally {
+      setIsBootstrapping(false);
+    }
+  };
 
   // Create default folder if not exists
   useEffect(() => {
@@ -1121,14 +1648,13 @@ function App() {
   };
 
   const startTest = () => {
-    const folderCards = flashcards.filter(c => c.folderId === activeFolderId);
-    if (folderCards.length === 0) return;
-    setTestPile([...folderCards]);
+    if (activeFolderCards.length === 0) return;
+    setTestPile([...activeFolderCards]);
     setFlashcardIndex(0);
     setCorrectCount(0);
     setIncorrectCount(0);
     setFirstAttemptCorrect(0);
-    setTestTotal(folderCards.length);
+    setTestTotal(activeFolderCards.length);
     setViewMode('test');
   };
 
@@ -1187,24 +1713,36 @@ function App() {
     }
   };
 
-  const activeFolderCards = [
-    ...flashcards.filter(c => c.folderId === activeFolderId),
-    ...savedSentences.filter(s => s.folderId === activeFolderId).map(s => ({
-      id: s.id,
-      folderId: s.folderId,
-      front: s.originalText,
-      back: s.translatedText,
-      pinyin: s.pinyin || '',
-      description: s.grammar,
-      userId: s.userId,
-      createdAt: s.createdAt,
-      tokens: s.tokens
-    }))
-  ].sort((a, b) => {
-    const aTime = a.createdAt?.toMillis?.() || 0;
-    const bTime = b.createdAt?.toMillis?.() || 0;
-    return bTime - aTime;
-  });
+  const activeFolderCards = isLibraryView 
+    ? (systemContent.find(c => c.folderId === activeSystemFolderId)?.words.map((w, idx) => ({
+        id: `sys-${activeSystemFolderId}-${idx}`,
+        folderId: activeSystemFolderId!,
+        front: w.word,
+        back: w.meaning,
+        pinyin: w.pinyin,
+        description: '',
+        userId: 'system',
+        createdAt: { toMillis: () => 0 },
+        isSystem: true
+      })) || [])
+    : [
+        ...flashcards.filter(c => c.folderId === activeFolderId),
+        ...savedSentences.filter(s => s.folderId === activeFolderId).map(s => ({
+          id: s.id,
+          folderId: s.folderId,
+          front: s.originalText,
+          back: s.translatedText,
+          pinyin: s.pinyin || '',
+          description: s.grammar,
+          userId: s.userId,
+          createdAt: s.createdAt,
+          tokens: s.tokens
+        }))
+      ].sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
 
   const isCurrentAnalysisSaved = analysis && savedSentences.some(s => s.originalText === analysis.originalText);
   const currentSavedInFolders = analysis 
@@ -1229,6 +1767,13 @@ return (
           folders={folders}
           activeFolderId={activeFolderId}
           setActiveFolderId={setActiveFolderId}
+          systemFolders={systemFolders}
+          activeSystemFolderId={activeSystemFolderId}
+          setActiveSystemFolderId={setActiveSystemFolderId}
+          isLibraryView={isLibraryView}
+          setIsLibraryView={setIsLibraryView}
+          bootstrapSystemData={bootstrapSystemData}
+          isBootstrapping={isBootstrapping}
           flashcards={flashcards}
           setFlashcardIndex={setFlashcardIndex}
           setViewMode={setViewMode}
@@ -1293,6 +1838,13 @@ return (
                 folders={folders}
                 activeFolderId={activeFolderId}
                 setActiveFolderId={setActiveFolderId}
+                systemFolders={systemFolders}
+                activeSystemFolderId={activeSystemFolderId}
+                setActiveSystemFolderId={setActiveSystemFolderId}
+                isLibraryView={isLibraryView}
+                setIsLibraryView={setIsLibraryView}
+                bootstrapSystemData={bootstrapSystemData}
+                isBootstrapping={isBootstrapping}
                 flashcards={flashcards}
                 setFlashcardIndex={setFlashcardIndex}
                 setViewMode={setViewMode}
@@ -1651,14 +2203,20 @@ return (
                 <motion.div key="flashcards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-serif font-bold dark:text-white">{folders.find(f => f.id === activeFolderId)?.name}</h2>
+                      <h2 className="text-2xl font-serif font-bold dark:text-white">
+                        {isLibraryView 
+                          ? systemFolders.find(f => f.id === activeSystemFolderId)?.name 
+                          : folders.find(f => f.id === activeFolderId)?.name}
+                      </h2>
                       <p className="text-sm text-zinc-500">{activeFolderCards.length} cards in this folder</p>
                     </div>
                     <div className="flex gap-3">
-                      <label className="cursor-pointer py-2 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl text-sm font-bold hover:bg-zinc-200 transition-all">
-                        Import CSV
-                        <input type="file" accept=".csv" onChange={handleCsvImport} className="hidden" />
-                      </label>
+                      {!isLibraryView && (
+                        <label className="cursor-pointer py-2 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl text-sm font-bold hover:bg-zinc-200 transition-all">
+                          Import CSV
+                          <input type="file" accept=".csv" onChange={handleCsvImport} className="hidden" />
+                        </label>
+                      )}
                       <button 
                         onClick={startTest}
                         disabled={activeFolderCards.length === 0}
@@ -1688,7 +2246,7 @@ return (
                             setPinyinMode={setPinyinMode}
                             onNext={() => setFlashcardIndex((flashcardIndex + 1) % activeFolderCards.length)}
                             onPrev={() => setFlashcardIndex((flashcardIndex - 1 + activeFolderCards.length) % activeFolderCards.length)}
-                            onDelete={async (id) => {
+                            onDelete={isLibraryView ? undefined : async (id) => {
                               try {
                                 await deleteDoc(doc(db, 'flashcards', id));
                                 toast.success("Flashcard deleted");
@@ -1702,6 +2260,29 @@ return (
                           />
                         </motion.div>
                       </AnimatePresence>
+                    ) : isLibraryView && systemFolders.some(sf => sf.parentId === activeSystemFolderId) ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full h-fit">
+                        {systemFolders.filter(sf => sf.parentId === activeSystemFolderId).map(sf => (
+                          <div 
+                            key={sf.id}
+                            onClick={() => {
+                              setActiveSystemFolderId(sf.id);
+                              setFlashcardIndex(0);
+                            }}
+                            className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-indigo-500 transition-all cursor-pointer group shadow-sm"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                  <FolderIcon size={20} />
+                                </div>
+                                <span className="font-bold text-zinc-900 dark:text-white">{sf.name}</span>
+                              </div>
+                              <ChevronRight size={18} className="text-zinc-300 group-hover:text-indigo-500" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl">
                         <BookOpen size={48} className="text-zinc-200 dark:text-zinc-800 mb-4" />
@@ -1726,11 +2307,14 @@ return (
                                 className="p-4 transition-colors cursor-pointer border-b border-zinc-100 dark:border-zinc-800/50 last:border-0"
                                 onClick={() => setFlashcardIndex(idx)}
                               >
-                                <div className="flex-1">
-                                  <div className="flex flex-col mb-2">
-                                    {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true, 'sm')}
+                                <div className="flex items-start gap-4">
+                                  <span className="text-xs font-mono text-zinc-400 mt-1">{idx + 1})</span>
+                                  <div className="flex-1">
+                                    <div className="flex flex-col mb-2">
+                                      {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true, 'sm')}
+                                    </div>
+                                    <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400">{englishText}</p>
                                   </div>
-                                  <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400">{englishText}</p>
                                 </div>
                               </div>
                             );
@@ -1811,8 +2395,8 @@ return (
                       current={flashcardIndex}
                       pinyinMode={pinyinMode}
                       setPinyinMode={setPinyinMode}
-                      onNext={() => setFlashcardIndex((flashcardIndex + 1) % testPile.length)}
-                      onPrev={() => setFlashcardIndex((flashcardIndex - 1 + testPile.length) % testPile.length)}
+                      onNext={() => handleTestMark(true)}
+                      onPrev={() => handleTestMark(false)}
                     />
                   </div>
                   <div className="max-w-xl mx-auto flex gap-4">

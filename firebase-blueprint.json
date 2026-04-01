@@ -80,6 +80,39 @@
         }
       },
       "required": ["originalText", "translatedText", "breakdown", "userId", "createdAt"]
+    },
+    "SystemFolder": {
+      "title": "System Folder",
+      "description": "A pre-defined folder for vocabulary (e.g. HSK).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "parentId": { "type": "string", "description": "Null for top-level" },
+        "order": { "type": "number" }
+      },
+      "required": ["name"]
+    },
+    "SystemContent": {
+      "title": "System Content",
+      "description": "Optimized storage for large vocabulary lists.",
+      "type": "object",
+      "properties": {
+        "folderId": { "type": "string" },
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "word": { "type": "string" },
+              "pinyin": { "type": "string" },
+              "pos": { "type": "string" },
+              "meaning": { "type": "string" },
+              "lesson": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["folderId", "words"]
     }
   },
   "firestore": {
@@ -94,6 +127,14 @@
     "/sentences/{sentenceId}": {
       "schema": "SavedSentence",
       "description": "Collection of saved sentences for language learning."
+    },
+    "/system_folders/{folderId}": {
+      "schema": "SystemFolder",
+      "description": "Pre-included vocabulary categories."
+    },
+    "/system_content/{contentId}": {
+      "schema": "SystemContent",
+      "description": "Bulk vocabulary data for system folders."
     }
   }
 }

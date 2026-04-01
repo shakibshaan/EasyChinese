@@ -30,8 +30,10 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "shaanshakib5@gmail.com" && request.auth.token.email_verified == true));
+        (
+          (request.auth.token.email == "shaanshakib5@gmail.com" && request.auth.token.email_verified == true) ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        );
     }
 
     function hasRequiredFields(fields) {
@@ -87,12 +89,23 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create, update: if isOwner(userId) && hasOnlyAllowedFields(['name', 'email', 'role', 'photoUrl']) && 
+      allow create, update: if isOwner(userId) && hasOnlyAllowedFields(['name', 'email', 'role', 'photoUrl', 'createdAt']) && 
                              (request.resource.data.role == 'user' || isAdmin());
     }
 
     match /test/connection {
       allow read: if isAuthenticated();
+    }
+
+    // System Folders and Content (Public Read)
+    match /system_folders/{folderId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /system_content/{contentId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

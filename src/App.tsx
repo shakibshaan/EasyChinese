@@ -217,14 +217,32 @@ const Auth = ({ user }: { user: User | null }) => {
   );
 };
 
-const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true, size: 'sm' | 'lg' = 'lg') => {
+const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true, size: 'sm' | 'lg' = 'lg', isLibrary: boolean = false) => {
   if (!tokens) {
     const actualShowChinese = showChinese || (!showChinese && !pinyin);
     return (
       <div className={cn("flex flex-col", size === 'lg' ? "items-center" : "items-start")}>
-        {actualShowChinese && <span className={cn("font-serif leading-tight text-zinc-900 dark:text-white", size === 'lg' ? (showPinyin ? "text-3xl md:text-5xl" : "text-4xl md:text-6xl") : "text-2xl")}>{text}</span>}
+        {actualShowChinese && (
+          <span className={cn(
+            "font-serif leading-tight text-zinc-900 dark:text-white", 
+            size === 'lg' 
+              ? (showPinyin 
+                  ? (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl") 
+                  : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl")) 
+              : "text-2xl"
+          )}>
+            {text}
+          </span>
+        )}
         {showPinyin && pinyin && (
-          <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (actualShowChinese ? "text-sm md:text-base mt-1" : "text-3xl md:text-5xl") : "text-base mt-1")}>
+          <span className={cn(
+            "font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", 
+            size === 'lg' 
+              ? (actualShowChinese 
+                  ? (isLibrary ? "text-lg md:text-xl mt-1" : "text-sm md:text-base mt-1") 
+                  : (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl")) 
+              : "text-base mt-1"
+          )}>
             {pinyin}
           </span>
         )}
@@ -239,9 +257,27 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
         const tokenShowChinese = showChinese || isPunctuation;
         return (
           <div key={idx} className="flex flex-col items-center justify-end">
-            {tokenShowChinese && <span className={cn("font-serif text-zinc-900 dark:text-white leading-none", size === 'lg' ? (showPinyin && !isPunctuation ? "text-3xl md:text-5xl" : "text-4xl md:text-6xl") : "text-2xl")}>{token.text}</span>}
+            {tokenShowChinese && (
+              <span className={cn(
+                "font-serif text-zinc-900 dark:text-white leading-none", 
+                size === 'lg' 
+                  ? (showPinyin && !isPunctuation 
+                      ? (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl") 
+                      : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl")) 
+                  : "text-2xl"
+              )}>
+                {token.text}
+              </span>
+            )}
             {showPinyin && token.pinyin && (
-              <span className={cn("font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", size === 'lg' ? (tokenShowChinese ? "text-sm md:text-base mt-1" : "text-3xl md:text-5xl") : "text-base mt-1")}>
+              <span className={cn(
+                "font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", 
+                size === 'lg' 
+                  ? (tokenShowChinese 
+                      ? (isLibrary ? "text-lg md:text-xl mt-1" : "text-sm md:text-base mt-1") 
+                      : (isLibrary ? "text-5xl md:text-6xl" : "text-3xl md:text-5xl")) 
+                  : "text-base mt-1"
+              )}>
                 {token.pinyin}
               </span>
             )}
@@ -303,7 +339,7 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
               <div className="min-h-full flex flex-col items-center justify-center py-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 md:mb-6">Question</span>
                 <div className="w-full flex justify-center items-center gap-4">
-                  {renderTokenizedText(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode)}
+                  {renderTokenizedText(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode, 'lg', card.isSystem)}
                   {isFrontChinese && (
                     <button 
                       onClick={(e) => { e.stopPropagation(); playAudio(chineseText); }} 
@@ -324,7 +360,7 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
               <div className="min-h-full flex flex-col items-center justify-center py-4">
                 <div className="mb-4 w-full flex flex-col items-center">
                   <div className="flex items-center gap-4">
-                    {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true)}
+                    {renderTokenizedText(chineseText, card.tokens, card.pinyin, true, true, 'lg', card.isSystem)}
                     <button 
                       onClick={(e) => { e.stopPropagation(); playAudio(chineseText); }} 
                       className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
@@ -333,7 +369,10 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
                       <Volume2 size={24} />
                     </button>
                   </div>
-                  <p className="text-2xl md:text-3xl font-serif text-zinc-800 dark:text-zinc-200 mt-4 text-center">{englishText}</p>
+                  <p className={cn(
+                    "font-serif text-zinc-800 dark:text-zinc-200 mt-4 text-center",
+                    card.isSystem ? "text-3xl md:text-3xl" : "text-2xl md:text-3xl"
+                  )}>{englishText}</p>
                 </div>
 
                 {card.description && (
@@ -1043,6 +1082,280 @@ function App() {
         rootId = docRef.id;
       }
 
+      // Check if "hsk 4 上" exists
+      const hsk4Shang = systemFolders.find(f => f.name === "hsk 4 上" && f.parentId === rootId);
+      let subIdShang = hsk4Shang?.id;
+
+      if (!subIdShang) {
+        const docRef = await addDoc(collection(db, 'system_folders'), {
+          name: "hsk 4 上",
+          parentId: rootId,
+          createdAt: serverTimestamp()
+        });
+        subIdShang = docRef.id;
+      }
+
+      // Check if content exists for "hsk 4 上"
+      const existingContentShang = systemContent.find(c => c.folderId === subIdShang);
+      if (!existingContentShang) {
+        const csvData = `1,法律,fǎlǜ,n,law
+1,俩,liǎ,num.-m,two, both
+1,印象,yìnxiàng,n,impression
+1,深,shēn,adj,deep
+1,熟悉,shúxī,v,to be familiar with
+1,不仅,bùjǐn,conj,not only
+1,性格,xìnggé,n,character, personality
+1,开玩笑,kāi wánxiào,,to be kidding
+1,从来,cónglái,adv,always, all along
+1,最好,zuìhǎo,adv,had better
+1,共同,gòngtóng,adj,common, shared
+1,适合,shìhé,v,to suit, to fit
+1,幸福,xìngfú,adj,happy
+1,生活,shēnghuó,n./v,life; to live
+1,刚,gāng,adv,just, not long
+1,浪漫,làngmàn,adj,romantic
+1,够,gòu,v,to be enough
+1,缺点,quēdiǎn,n,shortcoming
+1,接受,jiēshòu,v,to accept
+1,羡慕,xiànmù,v,to envy, to admire
+1,爱情,àiqíng,n,love (between a man and a woman)
+1,星星,xīngxing,n,star
+1,即使,jíshǐ,conj,even if
+1,加班,jiā bān,v,to work overtime
+1,亮,liàng,v,to shine, to be lit
+1,感动,gǎndòng,v,to touch, to move
+1,自然,zìrán,adv,naturally, certainly
+1,原因,yuányīn,n,reason
+1,互相,hùxiāng,adv,mutually
+1,吸引,xīyǐn,v,to attract
+1,幽默,yōumò,adj,humourous
+1,脾气,píqì,n,temper, disposition
+2,正好,zhènghǎo,adv,just right, just in time
+2,差不多,chàbuduō,adj,almost, nearly
+2,适应,shìyìng,v,to adapt, to get used to
+2,独立,dúlì,adj,independent
+2,帮忙,bāngmáng,v,to help
+2,出差,chūchāi,v,to go on a business trip
+2,尽管,jǐnguǎn,conj,even though, although
+2,陪,péi,v,to accompany
+2,却,què,adv,but, yet
+2,而,ér,conj,while, and
+2,交流,jiāoliú,v,to communicate, to exchange
+2,烦恼,fánnǎo,n,vexation, worry
+2,信任,xìnrèn,v,to trust
+2,遇到,yùdào,v,to encounter, to run into
+2,困难,kùnnan,n,difficulty
+2,支持,zhīchí,v,to support
+2,咸,xián,adj,salty
+2,甜,tián,adj,sweet
+2,酸,suān,adj,sour
+2,苦,kǔ,adj,bitter
+2,味道,wèidào,n,taste, flavor
+2,友谊,yǒuyì,n,friendship
+2,简单,jiǎndān,adj,simple
+2,复杂,fùzá,adj,complicated
+2,也许,yěxǔ,adv,maybe, perhaps
+3,印象,yìnxiàng,n,impression
+3,挺,tǐng,adv,very, quite
+3,先,xiān,adv,first
+3,本来,běnlái,adv,originally
+3,另外,lìngwài,conj,besides, in addition
+3,首先,shǒuxiān,adv,first of all
+3,其次,qícì,conj,secondly
+3,不管,bùguǎn,conj,no matter (what, how, etc.)
+3,重视,zhòngshì,v,to attach importance to
+3,能力,nénglì,n,ability, capability
+3,同意,tóngyì,v,to agree
+3,电脑,diànnǎo,n,computer
+3,发邮件,fā yóujiàn,,to send an email
+3,翻译,fānyì,v,to translate
+3,职业,zhíyè,n,profession, occupation
+3,经验,jīngyàn,n,experience
+3,面试,miànshì,n/job interview
+3,衬衫,chènshān,n,shirt
+3,领带,lǐngdài,n,necktie
+3,西服,xīfú,n,suit
+3,穿,chuān,v,to wear
+3,颜色,yánsè,n,color
+3,浅,qiǎn,adj,light (color)
+3,深,shēn,adj,dark (color)
+3,正式,zhèngshì,adj,formal
+3,随便,suíbiàn,adj,casual, random
+3,要求,yāoqiú,v/n,to demand, requirement
+4,着急,zháojí,adj,anxious, worried
+4,赚,zhuàn,v,to earn (money)
+4,以为,yǐwéi,v,to think, to believe mistakenly
+4,原来,yuánlái,adv,originally, actually
+4,并,bìng,adv,actually, indeed
+4,按照,ànzhào,prep,according to
+4,甚至,shènzhì,adv,even
+4,决定,juédìng,v/n,to decide, decision
+4,研究,yánjiū,v/n,to research, research
+4,研究生,yánjiūshēng,n,graduate student
+4,毕业,bìyè,v,to graduate
+4,工作,gōngzuò,v/n,to work, job
+4,坚持,jiānchí,v,to persist, to insist on
+4,计划,jìhuà,n,plan
+4,实现,shíxiàn,v,to realize, to achieve
+4,理想,lǐxiǎng,n,ideal, dream
+4,努力,nǔlì,adv/adj,hard-working, to work hard
+4,失败,shībài,v/n,to fail, failure
+4,成功,chénggōng,v/n,to succeed, success
+4,信心,xìnxīn,n,confidence
+4,自己,zìjǐ,pron,oneself
+4,希望,xīwàng,v/n,to hope, hope
+5,肯定,kěndìng,adv,definitely, certainly
+5,再说,zàishuō,conj,besides, moreover
+5,实际,shíjì,adj,actual, practical
+5,对……来说,duì...láishuō,,as far as...is concerned
+5,尤其,yóuqí,adv,especially
+5,价格,jiàgé,n,price
+5,便宜,piányi,adj,cheap, inexpensive
+5,贵,guì,adj,expensive
+5,质量,zhìliàng,n,quality
+5,选择,xuǎnzé,v/n,to choose, choice
+5,值得,zhídé,v,to be worth
+5,购物,gòuwù,v,to shop
+5,刷卡,shuākǎ,,to pay by card
+5,现金,xiànjīn,n,cash
+5,超市,chāoshì,n,supermarket
+5,打折,dǎzhé,v,to give a discount
+5,促销,cùxiāo,v,to promote sales
+5,顾客,gùkè,n,customer
+5,服务员,fúwùyuán,n,waiter/waitress, attendant
+5,注意,zhùyì,v,to pay attention to
+5,仔细,zǐxì,adj,careful
+5,发票,fāpiào,n,invoice, receipt
+6,价格,jiàgé,n,price
+6,竟然,jìngrán,adv,unexpectedly, to one's surprise
+6,倍,bèi,m,times (multiple)
+6,值得,zhídé,v,to be worth
+6,其中,qízhōng,n,among them
+6,下,xià,prep,under, beneath
+6,消费者,xiāofèizhě,n,consumer
+6,绿色,lǜsè,adj,green, environmentally friendly
+6,食品,shípǐn,n,food
+6,健康,jiànkāng,adj,healthy
+6,发展,fāzhǎn,v,to develop
+6,减少,jiǎnshǎo,v,to reduce, to decrease
+6,污染,wūrǎn,v/n,to pollute, pollution
+6,环境,huánjìng,n,environment
+6,保护,bǎohù,v,to protect
+6,选择,xuǎnzé,v,to choose
+6,影响,yǐngxiǎng,v/n,to affect, influence
+6,重要,zhòngyào,adj,important
+6,理解,lǐjiě,v,to understand, to comprehend
+6,道理,dàolǐ,n,principle, truth
+6,意思,yìsi,n,meaning
+7,估计,gūjì,v,to estimate, to guess
+7,来不及,láibují,v,to be too late, to not have enough time
+7,离,lí,prep,from, away from
+7,要是,yàoshi,conj,if
+7,既……又/也/还……,jì...yòu/yě/hái...,,both...and...
+7,健康,jiànkāng,adj,healthy
+7,医生,yīshēng,n,doctor
+7,锻炼,duànliàn,v,to exercise
+7,身体,shēntǐ,n,body
+7,休息,xiūxi,v,to rest
+7,重要,zhòngyào,adj,important
+7,办法,bànfǎ,n,way, method
+7,心情,xīnqíng,n,mood
+7,生气,shēngqì,v,to get angry
+7,脾气,píqì,n,temper
+7,影响,yǐngxiǎng,v/n,to affect, influence
+7,按时,ànshí,adv,on time
+7,习惯,xíguàn,n,habit
+7,作息,zuòxī,n,work and rest
+7,规律,guīlǜ,n,regular pattern
+7,熬夜,áo yè,v,to stay up late
+7,抽烟,chōu yān,v,to smoke
+7,喝酒,hē jiǔ,v,to drink alcohol
+7,放松,fàngsōng,v,to relax
+8,美,měi,adj,beautiful
+8,使,shǐ,v,to make, to cause
+8,只要,zhǐyào,conj,if only, as long as
+8,可不是,kěbùshì,adv,indeed, it is
+8,因此,yīncǐ,conj,therefore, consequently
+8,往往,wǎngwǎng,adv,often, frequently
+8,欣赏,xīnshǎng,v,to appreciate, to enjoy
+8,风景,fēngjǐng,n,scenery, landscape
+8,心情,xīnqíng,n,mood
+8,放松,fàngsōng,v,to relax
+8,压力,yālì,n,pressure, stress
+8,减少,jiǎnshǎo,v,to reduce
+8,烦恼,fánnǎo,n,vexation
+8,发现,fāxiàn,v,to discover
+8,平时,píngshí,n,usually, ordinarily
+8,熟悉,shúxī,adj,familiar
+8,虽然,suīrán,conj,although
+8,却,què,adv,but, yet
+8,缺点,quēdiǎn,n,shortcoming
+8,优点,yōudiǎn,n,strong point, merit
+8,缺少,quēshǎo,v,to lack
+8,眼光,yǎnguāng,n,insight, vision
+9,阳光,yángguāng,n,sunlight
+9,风雨,fēngyǔ,n,wind and rain
+9,难道,nándào,adv,(used in rhetorical questions) surely it doesn't mean...
+9,通过,tōngguò,prep,by means of, through
+9,可是,kěshì,conj,but
+9,结果,jiéguǒ,conj/n,as a result, outcome
+9,上,shàng,v,to go to (work, school, etc.)
+9,失败,shībài,v/n,to fail, failure
+9,成功,chénggōng,v/n,to succeed, success
+9,经历,jīnglì,v/n,to experience, experience
+9,经验,jīngyàn,n,experience
+9,获得,huòdé,v,to gain, to obtain
+9,珍惜,zhēnxī,v,to cherish, to value
+9,机会,jīhuì,n,opportunity
+9,努力,nǔlì,adv/adj,hard-working
+9,坚持,jiānchí,v,to persist
+9,最后,zuìhòu,adj/adv,final, finally
+9,终于,zhōngyú,adv,finally, at last
+9,笑,xiào,v,to laugh, to smile
+9,哭,kū,v,to cry
+9,面对,miànduì,v,to face, to confront
+9,困难,kùnnan,n,difficulty
+10,标准,biāozhǔn,n,standard, criterion
+10,不过,búguò,conj,but, however
+10,确实,quèshí,adv,indeed, really
+10,在……看来,zài...kànlái,,in one's opinion
+10,由于,yóuyú,conj,because of, due to
+10,比如,bǐrú,conj,for example, such as
+10,成功,chénggōng,v/n,to succeed, success
+10,幸福,xìngfú,adj,happy
+10,有钱,yǒuqián,adj,rich
+10,快乐,kuàilè,adj,happy, joyful
+10,健康,jiànkāng,adj,healthy
+10,家庭,jiātíng,n,family
+10,事业,shìyè,n,career
+10,房子,fángzi,n,house
+10,车子,chēzi,n,car
+10,收入,shōurù,n,income
+10,看法,kànfǎ,n,viewpoint
+10,追求,zhuīqiú,v,to pursue
+10,目标,mùbiāo,n,target, goal
+10,不同,bùtóng,adj,different
+10,价值观,jiàzhíguān,n,values
+10,社会,shèhuì,n,society`;
+
+        const lines = csvData.split('\n').filter(l => l.trim());
+        const words: SystemWord[] = lines.map(line => {
+          const parts = line.split(',');
+          return { 
+            lesson: parts[0] || "", 
+            word: parts[1] || "", 
+            pinyin: parts[2] || "", 
+            pos: parts[3] || "", 
+            meaning: parts.slice(4).join(',') || "" 
+          };
+        });
+
+        await addDoc(collection(db, 'system_content'), {
+          folderId: subIdShang,
+          words
+        });
+      }
+
       // Check if "hsk 4 下" exists
       const hsk4Sub = systemFolders.find(f => f.name === "hsk 4 下" && f.parentId === rootId);
       let subId = hsk4Sub?.id;
@@ -1372,10 +1685,16 @@ function App() {
 20,香,xiāng,adj,fragrant, scented
 20,酸,suān,adj,sour, tart`;
 
-        const lines = csvData.split('\n').slice(1); // skip header
+        const lines = csvData.split('\n').filter(l => l.trim());
         const words: SystemWord[] = lines.map(line => {
-          const [lesson, word, pinyin, pos, meaning] = line.split(',');
-          return { lesson, word, pinyin, pos, meaning };
+          const parts = line.split(',');
+          return { 
+            lesson: parts[0] || "", 
+            word: parts[1] || "", 
+            pinyin: parts[2] || "", 
+            pos: parts[3] || "", 
+            meaning: parts.slice(4).join(',') || "" 
+          };
         });
 
         await addDoc(collection(db, 'system_content'), {

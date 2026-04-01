@@ -1887,15 +1887,37 @@ function App() {
   const handleSelectFolder = async (folderId: string) => {
     if (!user || !itemToSave) return;
     
+    const { type, data } = itemToSave;
+    let isRemoving = false;
+    let existingId: string | null = null;
+
+    if (type === 'sentence') {
+      const existing = savedSentences.find(s => s.originalText === data.originalText && s.folderId === folderId);
+      isRemoving = !!existing;
+      existingId = existing?.id || null;
+    } else {
+      const front = type === 'word' ? data.word : data.text;
+      const existing = flashcards.find(c => c.front === front && c.folderId === folderId);
+      isRemoving = !!existing;
+      existingId = existing?.id || null;
+    }
+
+    // Optimistic update
+    setItemToSave(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        savedInFolders: isRemoving 
+          ? prev.savedInFolders.filter(id => id !== folderId)
+          : [...prev.savedInFolders, folderId]
+      };
+    });
+
     try {
-      const { type, data } = itemToSave;
-      
       if (type === 'sentence') {
-        const existing = savedSentences.find(s => s.originalText === data.originalText && s.folderId === folderId);
-        if (existing) {
-          await deleteDoc(doc(db, 'sentences', existing.id));
+        if (isRemoving && existingId) {
+          await deleteDoc(doc(db, 'sentences', existingId));
           toast.success("Removed from folder");
-          setItemToSave(prev => prev ? { ...prev, savedInFolders: prev.savedInFolders.filter(id => id !== folderId) } : null);
         } else {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { id: _id, ...analysisData } = data as any;
@@ -1907,15 +1929,12 @@ function App() {
             isLearned: false
           });
           toast.success("Saved to folder");
-          setItemToSave(prev => prev ? { ...prev, savedInFolders: [...prev.savedInFolders, folderId] } : null);
         }
       } else if (type === 'word' || type === 'example') {
         const front = type === 'word' ? data.word : data.text;
-        const existing = flashcards.find(c => c.front === front && c.folderId === folderId);
-        if (existing) {
-          await deleteDoc(doc(db, 'flashcards', existing.id));
+        if (isRemoving && existingId) {
+          await deleteDoc(doc(db, 'flashcards', existingId));
           toast.success("Removed from folder");
-          setItemToSave(prev => prev ? { ...prev, savedInFolders: prev.savedInFolders.filter(id => id !== folderId) } : null);
         } else {
           await addDoc(collection(db, 'flashcards'), {
             folderId,
@@ -1927,10 +1946,19 @@ function App() {
             createdAt: serverTimestamp()
           });
           toast.success("Saved to folder");
-          setItemToSave(prev => prev ? { ...prev, savedInFolders: [...prev.savedInFolders, folderId] } : null);
         }
       }
     } catch (error) {
+      // Revert optimistic update on error
+      setItemToSave(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          savedInFolders: isRemoving 
+            ? [...prev.savedInFolders, folderId]
+            : prev.savedInFolders.filter(id => id !== folderId)
+        };
+      });
       handleFirestoreError(error, OperationType.WRITE, 'save_to_folder');
       toast.error("Failed to update folder.");
     }

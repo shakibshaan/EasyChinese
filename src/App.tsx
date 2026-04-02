@@ -12,6 +12,10 @@ import {
   LogIn,
   Trash2,
   BrainCircuit,
+  Brain,
+  Zap,
+  Layers,
+  Library,
   X,
   AlertTriangle,
   Menu,
@@ -2083,7 +2087,8 @@ function App() {
         description: '',
         userId: 'system',
         createdAt: { toMillis: () => 0 },
-        isSystem: true
+        isSystem: true,
+        type: 'system' as const
       })) || [])
     : [
         ...flashcards.filter(c => c.folderId === activeFolderId).map(c => ({ ...c, type: 'flashcard' as const })),
@@ -2273,6 +2278,27 @@ return (
                   exit={{ opacity: 0, y: -10 }}
                   className="space-y-12"
                 >
+                  {/* Hero Section */}
+                  {!analysis && !isAnalyzing && (
+                    <div className="text-center space-y-4 mb-8 md:mb-12">
+                      <motion.h2 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-3xl md:text-5xl font-serif font-bold text-zinc-900 dark:text-white"
+                      >
+                        Master Chinese, <span className="text-rose-500">One Sentence</span> at a Time.
+                      </motion.h2>
+                      <motion.p 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-zinc-500 dark:text-zinc-400 text-sm md:text-lg max-w-2xl mx-auto"
+                      >
+                        The intelligent companion for your Chinese learning journey. Analyze, save, and study with ease.
+                      </motion.p>
+                    </div>
+                  )}
+
                   {/* Input Section */}
                   <section className="space-y-4">
                     <form onSubmit={handleAnalyze} className="relative">
@@ -2299,7 +2325,85 @@ return (
                         {isAnalyzing ? <RotateCw className="animate-spin" size={20} /> : <Search size={20} />}
                       </button>
                     </form>
+
+                    {/* Examples Section */}
+                    {!analysis && !isAnalyzing && (
+                      <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
+                        <span className="text-xs font-medium text-zinc-400 mr-2">Try:</span>
+                        {['你好吗？', '我学习中文。', '今天天气很好。'].map((example) => (
+                          <button
+                            key={example}
+                            onClick={() => setInputText(example)}
+                            className="px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs hover:bg-rose-500 hover:text-white transition-colors"
+                          >
+                            {example}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </section>
+
+                  {!analysis && !isAnalyzing && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="space-y-12 pt-8"
+                    >
+                      <div className="text-center space-y-4">
+                        <h2 className="text-3xl md:text-5xl font-serif font-bold text-zinc-900 dark:text-white tracking-tight">
+                          Master Chinese with <span className="text-rose-500">Ease</span>
+                        </h2>
+                        <p className="text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto text-sm md:text-lg">
+                          Hanzi Flow helps you break down complex sentences, understand grammar, and build your vocabulary through interactive flashcards.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[
+                          {
+                            icon: <BrainCircuit className="text-amber-500" size={24} />,
+                            title: "Smart Analysis",
+                            desc: "Instant breakdown of sentences with pinyin, translations, and word-by-word analysis.",
+                            color: "amber"
+                          },
+                          {
+                            icon: <FileText className="text-indigo-500" size={24} />,
+                            title: "Grammar Guide",
+                            desc: "Get deep insights into sentence structures and contextual usage for every phrase.",
+                            color: "indigo"
+                          },
+                          {
+                            icon: <BookmarkPlus className="text-rose-500" size={24} />,
+                            title: "Flashcards",
+                            desc: "Save any word or sentence to your personal library for active recall and testing.",
+                            color: "rose"
+                          },
+                          {
+                            icon: <BookOpen className="text-emerald-500" size={24} />,
+                            title: "HSK Library",
+                            desc: "Access curated content from HSK 1 to HSK 6 to accelerate your learning journey.",
+                            color: "emerald"
+                          }
+                        ].map((feature, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 + (i * 0.1) }}
+                            className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm hover:border-indigo-500 transition-all group relative overflow-hidden"
+                          >
+                            <div className={`absolute top-0 right-0 w-24 h-24 bg-${feature.color}-500/5 -mr-8 -mt-8 rounded-full blur-2xl group-hover:bg-${feature.color}-500/10 transition-colors`} />
+                            <div className="w-14 h-14 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform relative z-10">
+                              {feature.icon}
+                            </div>
+                            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-3 relative z-10">{feature.title}</h3>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed relative z-10">{feature.desc}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
 
                   {/* Results Section */}
                   {isAnalyzing && (
@@ -2612,8 +2716,9 @@ return (
                             onNext={() => setFlashcardIndex((flashcardIndex + 1) % activeFolderCards.length)}
                             onPrev={() => setFlashcardIndex((flashcardIndex - 1 + activeFolderCards.length) % activeFolderCards.length)}
                             onDelete={isLibraryView ? undefined : async (id) => {
+                              let cardToDelete: any = null;
                               try {
-                                const cardToDelete = activeFolderCards.find(c => c.id === id);
+                                cardToDelete = activeFolderCards.find(c => c.id === id);
                                 if (cardToDelete?.type === 'sentence') {
                                   await deleteDoc(doc(db, 'sentences', id));
                                   setRecentAnalyses(prev => prev.filter(a => a.originalText !== cardToDelete.front));

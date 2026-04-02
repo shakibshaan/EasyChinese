@@ -945,6 +945,26 @@ function App() {
   } | null>(null);
   const creatingDefaultFolder = React.useRef(false);
 
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const loadingMessages = [
+    "Generating analysis...",
+    "Analyzing grammar...",
+    "Exploring context...",
+    "Word by word breakdown..."
+  ];
+
+  useEffect(() => {
+    let interval: any;
+    if (isAnalyzing) {
+      interval = setInterval(() => {
+        setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
+      }, 1500);
+    } else {
+      setLoadingMessageIndex(0);
+    }
+    return () => clearInterval(interval);
+  }, [isAnalyzing]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -2250,20 +2270,33 @@ return (
             >
               <Menu size={24} className="text-zinc-600 dark:text-zinc-400" />
             </button>
-            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">EasyChinese</h1>
+            <button 
+              onClick={() => {
+                setViewMode('analysis');
+                setAnalysis(null);
+                setIsAnalyzing(false);
+              }}
+              className="flex items-center gap-2 md:gap-4 hover:opacity-80 transition-opacity"
+            >
+              <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">EasyChinese</h1>
+            </button>
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
             <ThemeToggle theme={theme} toggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
-            {viewMode !== 'analysis' && (
+            {viewMode !== 'analysis' || analysis ? (
               <button 
-                onClick={() => setViewMode('analysis')}
+                onClick={() => {
+                  setViewMode('analysis');
+                  setAnalysis(null);
+                  setIsAnalyzing(false);
+                }}
                 className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl border-2 border-rose-500/20 dark:border-rose-400/20 bg-rose-500/5 dark:bg-rose-400/5 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white dark:hover:bg-rose-400 dark:hover:text-zinc-950 transition-all flex items-center gap-2 text-xs md:text-sm font-bold"
               >
                 <Home size={16} />
                 Back
               </button>
-            )}
+            ) : null}
           </div>
         </header>
 
@@ -2355,7 +2388,7 @@ return (
                           Master Chinese with <span className="text-rose-500">Ease</span>
                         </h2>
                         <p className="text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto text-sm md:text-lg">
-                          Hanzi Flow helps you break down complex sentences, understand grammar, and build your vocabulary through interactive flashcards.
+                          EasyChinese helps you break down complex sentences, understand grammar, and build your vocabulary through interactive flashcards.
                         </p>
                       </div>
 
@@ -2410,7 +2443,9 @@ return (
                     <div className="space-y-6 md:space-y-10">
                       <div className="flex flex-col items-center justify-center py-8 space-y-4">
                         <RotateCw className="w-8 h-8 md:w-10 md:h-10 text-indigo-500 animate-spin" />
-                        <p className="text-sm md:text-base font-medium text-zinc-500 dark:text-zinc-400 animate-pulse">Analyzing please wait...</p>
+                        <p className="text-sm md:text-base font-medium text-zinc-500 dark:text-zinc-400 animate-pulse">
+                          {loadingMessages[loadingMessageIndex]}
+                        </p>
                       </div>
                       <div className="space-y-6 md:space-y-10 animate-pulse opacity-50">
                         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm">

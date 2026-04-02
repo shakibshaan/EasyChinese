@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   Save, 
@@ -26,10 +26,12 @@ import {
   CheckCircle2,
   Loader2,
   Home,
-  Volume2
+  Volume2,
+  Settings,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc, getDocFromServer, setDoc } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, ContextExample } from './services/geminiService';
@@ -189,35 +191,516 @@ const ThemeToggle = ({ theme, toggle }: { theme: 'dark' | 'light', toggle: () =>
   </button>
 );
 
-const Auth = ({ user }: { user: User | null }) => {
-  const login = () => signInWithPopup(auth, new GoogleAuthProvider());
-  const logout = () => signOut(auth);
+const CustomCaptcha = ({ onVerify }: { onVerify: (verified: boolean) => void }) => {
+  const [num1, setNum1] = useState(0);
+  const [num2, setNum2] = useState(0);
+  const [answer, setAnswer] = useState('');
+  const [verified, setVerified] = useState(false);
+
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
+  const generateCaptcha = () => {
+    setNum1(Math.floor(Math.random() * 10) + 1);
+    setNum2(Math.floor(Math.random() * 10) + 1);
+    setAnswer('');
+    setVerified(false);
+    onVerify(false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setAnswer(val);
+    if (parseInt(val) === num1 + num2) {
+      setVerified(true);
+      onVerify(true);
+    } else {
+      setVerified(false);
+      onVerify(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
+      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+        What is {num1} + {num2}?
+      </span>
+      <input
+        type="number"
+        value={answer}
+        onChange={handleChange}
+        className="w-16 px-2 py-1 text-center bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-zinc-900 dark:text-white"
+        placeholder="?"
+      />
+      {verified && <CheckCircle2 size={18} className="text-green-500 ml-auto" />}
+    </div>
+  );
+};
+
+const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [captchaKey, setCaptchaKey] = useState(0);
+
+  if (!isOpen) return null;
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!captchaVerified && mode !== 'reset') {
+      toast.error("Please verify the captcha");
+      return;
+    }
+    setLoading(true);
+    const trimmedEmail = email.trim();
+    
+    if (mode === 'signup') {
+      if (password !== confirmPassword) {
+        toast.error("Passwords do not match");
+        setLoading(false);
+        setCaptchaKey(k => k + 1);
+        return;
+      }
+      try {
+        await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+        toast.success("Account created successfully!");
+        onClose();
+      } catch (e: any) {
+        if (e.code === 'auth/email-already-in-use') {
+          toast.error("This email is already registered. If you previously used Google to sign in, please use the Google button below.");
+        } else if (e.code === 'auth/operation-not-allowed') {
+          toast.error("Email/Password sign-in is not enabled in your Firebase Console. Please enable it in Authentication > Sign-in method.");
+        } else {
+          toast.error(e.message);
+        }
+        setCaptchaKey(k => k + 1);
+      }
+    } else if (mode === 'login') {
+      try {
+        await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        toast.success("Logged in successfully!");
+        onClose();
+      } catch (e: any) {
+        if (e.code === 'auth/user-not-found') {
+          toast.error("Account not found. Please check your email or sign up.");
+        } else if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
+          toast.error("Invalid email or password. If you previously used Google to sign in, please use the Google button below.");
+        } else if (e.code === 'auth/operation-not-allowed') {
+          toast.error("Email/Password sign-in is not enabled in your Firebase Console. Please enable it in Authentication > Sign-in method.");
+        } else {
+          toast.error(e.message);
+        }
+        setCaptchaKey(k => k + 1);
+      }
+    } else if (mode === 'reset') {
+      try {
+        await sendPasswordResetEmail(auth, trimmedEmail);
+        toast.success("Password reset email sent!");
+        setMode('login');
+      } catch (e: any) {
+        toast.error(e.message);
+        setCaptchaKey(k => k + 1);
+      }
+    }
+    
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+          <X size={20} />
+        </button>
+        
+        <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">
+          {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
+        </h2>
+
+        {mode === 'login' && (
+          <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex gap-3">
+            <Info size={18} className="text-indigo-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+              <strong>Note:</strong> If you previously used Google to sign in, please continue with Google. Using email/password with the same email address will create a separate account.
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Email</label>
+            <input 
+              type="email" 
+              required 
+              value={email} 
+              onChange={e => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+            />
+          </div>
+
+          {mode !== 'reset' && (
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Password</label>
+              <input 
+                type="password" 
+                required 
+                value={password} 
+                onChange={e => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+              />
+            </div>
+          )}
+
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Confirm Password</label>
+              <input 
+                type="password" 
+                required 
+                value={confirmPassword} 
+                onChange={e => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+              />
+            </div>
+          )}
+
+          {mode !== 'reset' && (
+            <CustomCaptcha key={mode + captchaKey} onVerify={setCaptchaVerified} />
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading || (!captchaVerified && mode !== 'reset')}
+            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-colors disabled:opacity-50 flex items-center justify-center"
+          >
+            {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link')}
+          </button>
+        </form>
+
+        <div className="mt-6 space-y-4">
+          {mode === 'login' && (
+            <div className="text-center">
+              <button onClick={() => setMode('reset')} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+                Forgot your password?
+              </button>
+            </div>
+          )}
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-200 dark:border-zinc-700"></div></div>
+            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white dark:bg-zinc-900 text-zinc-500">Or continue with</span></div>
+          </div>
+
+          <button 
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors font-medium"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            Google
+          </button>
+
+          <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 mt-4">
+            {mode === 'login' ? (
+              <>Don't have an account? <button onClick={() => setMode('signup')} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Sign up</button></>
+            ) : (
+              <>Already have an account? <button onClick={() => setMode('login')} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Sign in</button></>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const UserSettingsModal = ({ isOpen, onClose, user, localPic, onUpdatePic, onProfileUpdate }: { isOpen: boolean, onClose: () => void, user: User, localPic: string | null, onUpdatePic: (pic: string) => void, onProfileUpdate: () => void }) => {
+  const [displayName, setDisplayName] = useState(user.displayName || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [loadingName, setLoadingName] = useState(false);
+  const [loadingPassword, setLoadingPassword] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const isPasswordProvider = user.providerData.some(p => p.providerId === 'password');
+
+  if (!isOpen) return null;
+
+  const handleUpdateName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoadingName(true);
+    try {
+      await updateProfile(user, { displayName });
+      onProfileUpdate();
+      toast.success("Profile updated successfully!");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoadingName(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user.email) return;
+    setLoadingPassword(true);
+    try {
+      const cred = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, cred);
+      await updatePassword(user, newPassword);
+      toast.success("Password updated successfully!");
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoadingPassword(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 128;
+        canvas.height = 128;
+        const size = Math.min(img.width, img.height);
+        const x = (img.width - size) / 2;
+        const y = (img.height - size) / 2;
+        ctx?.drawImage(img, x, y, size, size, 0, 0, 128, 128);
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        localStorage.setItem(`profilePic_${user.uid}`, base64);
+        onUpdatePic(base64);
+        toast.success("Profile picture updated!");
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const displayPic = localPic || user.photoURL || `https://ui-avatars.com/api/?name=${user.email}&background=random`;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+          <X size={20} />
+        </button>
+        
+        <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Settings</h2>
+
+        <div className="space-y-8">
+          {/* Profile Picture */}
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative group">
+              <img src={displayPic} alt="Profile" className="w-24 h-24 rounded-full border-4 border-zinc-100 dark:border-zinc-800 object-cover" referrerPolicy="no-referrer" />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <span className="text-xs font-bold">Change</span>
+              </button>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-zinc-900 dark:text-white">{user.email}</p>
+              <p className="text-xs text-zinc-500">Signed in via {isPasswordProvider ? 'Email' : 'Google'}</p>
+            </div>
+          </div>
+
+          {/* Update Name */}
+          <form onSubmit={handleUpdateName} className="space-y-3">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Profile</h3>
+            <div>
+              <label className="block text-xs font-medium text-zinc-500 mb-1">Display Name</label>
+              <input 
+                type="text" 
+                value={displayName} 
+                onChange={e => setDisplayName(e.target.value)}
+                placeholder="Enter your name"
+                className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
+              />
+            </div>
+            <button 
+              type="submit" 
+              disabled={loadingName || displayName === user.displayName}
+              className="w-full py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center text-sm"
+            >
+              {loadingName ? <Loader2 className="animate-spin" size={16} /> : 'Save Name'}
+            </button>
+          </form>
+
+          {/* Update Password */}
+          {isPasswordProvider && (
+            <form onSubmit={handleUpdatePassword} className="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Security</h3>
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 mb-1">Current Password</label>
+                <input 
+                  type="password" 
+                  required
+                  value={currentPassword} 
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 mb-1">New Password</label>
+                <input 
+                  type="password" 
+                  required
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={loadingPassword || !currentPassword || !newPassword}
+                className="w-full py-2 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500 transition-colors disabled:opacity-50 flex items-center justify-center text-sm"
+              >
+                {loadingPassword ? <Loader2 className="animate-spin" size={16} /> : 'Update Password'}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LogoutConfirmModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, onClose: () => void, onConfirm: () => void }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl p-8 border border-zinc-200 dark:border-zinc-800 text-center"
+      >
+        <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <LogOut size={32} className="text-red-500" />
+        </div>
+        <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Log Out?</h3>
+        <p className="text-zinc-500 dark:text-zinc-400 mb-8">Are you sure you want to log out? Any unsaved changes in the current session might be lost.</p>
+        <div className="flex gap-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-xl font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="flex-1 px-6 py-3 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg shadow-red-500/25"
+          >
+            Log Out
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const Auth = ({ user, onOpenAuthModal }: { user: User | null, onOpenAuthModal: () => void }) => {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [localPic, setLocalPic] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
+  
+  useEffect(() => {
+    if (user) {
+      const pic = localStorage.getItem(`profilePic_${user.uid}`);
+      if (pic) setLocalPic(pic);
+    } else {
+      setLocalPic(null);
+    }
+  }, [user]);
+
+  const logout = () => {
+    signOut(auth);
+    setIsLogoutConfirmOpen(false);
+  };
 
   if (user) {
+    const displayPic = localPic || user.photoURL || `https://ui-avatars.com/api/?name=${user.email}&background=random`;
     return (
-      <div className="flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-800">
-        <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700" referrerPolicy="no-referrer" />
-        <div className="flex-1 overflow-hidden">
-          <p className="text-sm font-medium truncate dark:text-zinc-200">{user.displayName}</p>
-          <p className="text-xs text-zinc-500 truncate dark:text-zinc-500">{user.email}</p>
+      <>
+        <div className="flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-800">
+          <img src={displayPic} alt={user.displayName || user.email || ''} className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover" referrerPolicy="no-referrer" />
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-medium truncate dark:text-zinc-200">{user.displayName || user.email?.split('@')[0]}</p>
+            <p className="text-xs text-zinc-500 truncate dark:text-zinc-500">{user.email}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500" title="Settings">
+              <Settings size={18} />
+            </button>
+            <button onClick={() => setIsLogoutConfirmOpen(true)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500" title="Log out">
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
-        <button onClick={logout} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500">
-          <LogOut size={18} />
-        </button>
-      </div>
+        <UserSettingsModal 
+          isOpen={isSettingsOpen} 
+          onClose={() => setIsSettingsOpen(false)} 
+          user={user} 
+          localPic={localPic}
+          onUpdatePic={setLocalPic}
+          onProfileUpdate={() => setRefresh(r => r + 1)}
+        />
+        <LogoutConfirmModal 
+          isOpen={isLogoutConfirmOpen} 
+          onClose={() => setIsLogoutConfirmOpen(false)} 
+          onConfirm={logout} 
+        />
+      </>
     );
   }
 
   return (
-    <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
-      <button 
-        onClick={login}
-        className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-zinc-900 dark:bg-indigo-600 text-white rounded-lg hover:bg-zinc-800 dark:hover:bg-indigo-500 transition-colors font-medium shadow-lg shadow-indigo-500/20"
-      >
-        <LogIn size={18} />
-        Sign in with Google
-      </button>
-    </div>
+    <>
+      <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+        <button 
+          onClick={onOpenAuthModal}
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-zinc-900 dark:bg-indigo-600 text-white rounded-lg hover:bg-zinc-800 dark:hover:bg-indigo-500 transition-colors font-medium shadow-lg shadow-indigo-500/20"
+        >
+          <LogIn size={18} />
+          Sign In / Sign Up
+        </button>
+      </div>
+    </>
   );
 };
 
@@ -458,6 +941,7 @@ interface SidebarProps {
   setRecentAnalyses: React.Dispatch<React.SetStateAction<SentenceAnalysis[]>>;
   savedSentences: SavedSentence[];
   setAnalysis: (analysis: SentenceAnalysis) => void;
+  onOpenAuthModal: () => void;
 }
 
 const SidebarContent = ({
@@ -489,10 +973,11 @@ const SidebarContent = ({
   recentAnalyses,
   setRecentAnalyses,
   savedSentences,
-  setAnalysis
+  setAnalysis,
+  onOpenAuthModal
 }: SidebarProps) => (
   <>
-    <Auth user={user} />
+    <Auth user={user} onOpenAuthModal={onOpenAuthModal} />
     
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       <div className="p-4 space-y-8">
@@ -792,7 +1277,8 @@ const FolderSelectModal = ({
   setNewFolderName, 
   isAddingFolder, 
   setIsAddingFolder,
-  savedInFolders = []
+  savedInFolders = [],
+  isSaving
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
@@ -804,6 +1290,7 @@ const FolderSelectModal = ({
   isAddingFolder: boolean;
   setIsAddingFolder: (is: boolean) => void;
   savedInFolders?: string[];
+  isSaving?: boolean;
 }) => {
   if (!isOpen) return null;
 
@@ -823,7 +1310,18 @@ const FolderSelectModal = ({
         className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800"
       >
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Save to Folder</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Save to Folder</h3>
+            {isSaving && (
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="text-indigo-500"
+              >
+                <Loader2 size={16} />
+              </motion.div>
+            )}
+          </div>
           <button onClick={onClose} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-500">
             <X size={20} />
           </button>
@@ -835,12 +1333,14 @@ const FolderSelectModal = ({
             return (
               <button
                 key={folder.id}
+                disabled={isSaving}
                 onClick={() => onSelect(folder.id)}
                 className={cn(
                   "w-full flex items-center justify-between p-4 rounded-2xl transition-all border",
                   isSaved 
                     ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400" 
-                    : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 text-zinc-700 dark:text-zinc-300"
+                    : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 text-zinc-700 dark:text-zinc-300",
+                  isSaving && "opacity-50 cursor-not-allowed"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -938,11 +1438,21 @@ function App() {
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [sentenceToDelete, setSentenceToDelete] = useState<string | null>(null);
   const [isFolderSelectOpen, setIsFolderSelectOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [itemToSave, setItemToSave] = useState<{ 
     type: 'sentence' | 'word' | 'example', 
     data: any,
     savedInFolders: string[]
   } | null>(null);
+
+  useEffect(() => {
+    if (user && pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  }, [user, pendingAction]);
   const creatingDefaultFolder = React.useRef(false);
 
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
@@ -971,6 +1481,8 @@ function App() {
       setIsAuthReady(true);
       if (!u) {
         setIsDataReady(true);
+      } else {
+        setIsDataReady(false);
       }
     });
     return unsubscribe;
@@ -1006,6 +1518,8 @@ function App() {
       setSavedSentences([]);
       setFolders([]);
       setFlashcards([]);
+      setActiveFolderId(null);
+      setDataLoaded({ sentences: false, folders: false, flashcards: false });
       return;
     }
 
@@ -1738,7 +2252,7 @@ function App() {
 
   // Create default folder if not exists
   useEffect(() => {
-    if (user && isAuthReady && folders.length === 0 && !creatingDefaultFolder.current) {
+    if (user && isAuthReady && dataLoaded.folders && folders.length === 0 && !creatingDefaultFolder.current) {
       const createDefault = async () => {
         creatingDefaultFolder.current = true;
         try {
@@ -1759,12 +2273,15 @@ function App() {
   }, [user, folders, isAuthReady]);
 
   // Cleanup duplicate "Saved Sentences" folders
+  const isCleaningUp = useRef(false);
   useEffect(() => {
-    if (!user || folders.length <= 1) return;
+    if (!user || folders.length <= 1 || isCleaningUp.current) return;
 
     const cleanupDuplicates = async () => {
       const savedSentenceFolders = folders.filter(f => f.name === 'Saved Sentences');
       if (savedSentenceFolders.length <= 1) return;
+      
+      isCleaningUp.current = true;
 
       // Identify the best folder to keep:
       // 1. Prefer the one marked as isDefault
@@ -1815,10 +2332,22 @@ function App() {
           console.error("Cleanup failed for folder:", folder.id, error);
         }
       }
+      isCleaningUp.current = false;
     };
 
     cleanupDuplicates();
   }, [user, folders, flashcards, savedSentences]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSaving) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isSaving]);
 
   useEffect(() => {
     const saved = localStorage.getItem('hanzi_flow_recent_analyses_v4');
@@ -1867,21 +2396,34 @@ function App() {
   };
 
   const handleSave = async () => {
-    if (!user || !analysis) return;
+    if (!user) {
+      setIsAuthModalOpen(true);
+      setPendingAction(() => handleSave);
+      return;
+    }
+    if (!analysis) return;
     const savedIn = savedSentences.filter(s => s.originalText === analysis.originalText).map(s => s.folderId);
     setItemToSave({ type: 'sentence', data: analysis, savedInFolders: savedIn });
     setIsFolderSelectOpen(true);
   };
 
   const handleSaveWord = async (word: WordBreakdown) => {
-    if (!user) return;
+    if (!user) {
+      setIsAuthModalOpen(true);
+      setPendingAction(() => () => handleSaveWord(word));
+      return;
+    }
     const savedIn = flashcards.filter(c => c.front === word.word).map(c => c.folderId);
     setItemToSave({ type: 'word', data: word, savedInFolders: savedIn });
     setIsFolderSelectOpen(true);
   };
 
   const handleSaveExample = async (example: ContextExample) => {
-    if (!user) return;
+    if (!user) {
+      setIsAuthModalOpen(true);
+      setPendingAction(() => () => handleSaveExample(example));
+      return;
+    }
     const savedIn = flashcards.filter(c => c.front === example.text).map(c => c.folderId);
     setItemToSave({ type: 'example', data: example, savedInFolders: savedIn });
     setIsFolderSelectOpen(true);
@@ -1914,8 +2456,9 @@ function App() {
   };
 
   const handleSelectFolder = async (folderId: string) => {
-    if (!user || !itemToSave) return;
+    if (!user || !itemToSave || isSaving) return;
     
+    setIsSaving(true);
     const { type, data } = itemToSave;
     let isRemoving = false;
     let existingId: string | null = null;
@@ -1991,6 +2534,8 @@ function App() {
       });
       handleFirestoreError(error, OperationType.WRITE, 'save_to_folder');
       toast.error("Failed to update folder.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2178,6 +2723,7 @@ return (
           setRecentAnalyses={setRecentAnalyses}
           savedSentences={savedSentences}
           setAnalysis={setAnalysis}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
         />
       </motion.aside>
 
@@ -2253,6 +2799,7 @@ return (
                 setRecentAnalyses={setRecentAnalyses}
                 savedSentences={savedSentences}
                 setAnalysis={setAnalysis}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
               />
             </motion.aside>
           </>
@@ -2478,32 +3025,30 @@ return (
                       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm">
                         <div className="flex items-center justify-between mb-4 md:mb-6">
                            <span className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Translation</span>
-                           {user && (
-                             <button 
-                               onClick={handleSave} 
-                               className={cn(
-                                 "flex items-center gap-1.5 md:gap-2 text-[10px] md:text-sm font-bold transition-all px-4 md:px-4 py-3 md:py-2 rounded-lg md:rounded-xl",
-                                 isCurrentAnalysisSaved 
-                                   ? "text-green-600 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
-                                   : "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
-                               )}
-                               title={isCurrentAnalysisSaved ? "Remove from Library" : "Save to Library"}
-                             >
-                               {isCurrentAnalysisSaved ? (
-                                 <>
-                                   <CheckCircle2 size={14} className="md:w-4 md:h-4" />
-                                   <span className="hidden xs:inline">Saved to Library</span>
-                                   <span className="xs:hidden">Saved</span>
-                                 </>
-                               ) : (
-                                 <>
-                                   <BookmarkPlus size={14} className="md:w-4 md:h-4" />
-                                   <span className="hidden xs:inline">Save & Create Flashcard</span>
-                                   <span className="xs:hidden">Save</span>
-                                 </>
-                               )}
-                             </button>
-                           )}
+                           <button 
+                             onClick={handleSave} 
+                             className={cn(
+                               "flex items-center gap-1.5 md:gap-2 text-[10px] md:text-sm font-bold transition-all px-4 md:px-4 py-3 md:py-2 rounded-lg md:rounded-xl",
+                               isCurrentAnalysisSaved 
+                                 ? "text-green-600 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
+                                 : "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
+                             )}
+                             title={isCurrentAnalysisSaved ? "Remove from Library" : "Save to Library"}
+                           >
+                             {isCurrentAnalysisSaved ? (
+                               <>
+                                 <CheckCircle2 size={14} className="md:w-4 md:h-4" />
+                                 <span className="hidden xs:inline">Saved to Library</span>
+                                 <span className="xs:hidden">Saved</span>
+                               </>
+                             ) : (
+                               <>
+                                 <BookmarkPlus size={14} className="md:w-4 md:h-4" />
+                                 <span className="hidden xs:inline">Save & Create Flashcard</span>
+                                 <span className="xs:hidden">Save</span>
+                               </>
+                             )}
+                           </button>
                          </div>
                          <div className="space-y-6 md:space-y-8">
                            <div>
@@ -2613,20 +3158,18 @@ return (
                                         <Volume2 size={18} />
                                       </button>
                                     </div>
-                                    {user && (
-                                      <button 
-                                        onClick={() => handleSaveWord(item)}
-                                        className={cn(
-                                          "p-3 md:p-2.5 rounded-lg md:rounded-2xl transition-all shadow-sm",
-                                          isSaved 
-                                            ? "text-green-500 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
-                                            : "text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
-                                        )}
-                                        title={isSaved ? "Remove from Flashcards" : "Save to Flashcards"}
-                                      >
-                                        {isSaved ? <CheckCircle2 size={16} className="md:w-5 md:h-5" /> : <BookmarkPlus size={16} className="md:w-5 md:h-5" />}
-                                      </button>
-                                    )}
+                                    <button 
+                                      onClick={() => handleSaveWord(item)}
+                                      className={cn(
+                                        "p-3 md:p-2.5 rounded-lg md:rounded-2xl transition-all shadow-sm",
+                                        isSaved 
+                                          ? "text-green-500 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
+                                          : "text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
+                                      )}
+                                      title={isSaved ? "Remove from Flashcards" : "Save to Flashcards"}
+                                    >
+                                      {isSaved ? <CheckCircle2 size={16} className="md:w-5 md:h-5" /> : <BookmarkPlus size={16} className="md:w-5 md:h-5" />}
+                                    </button>
                                   </div>
                                   <p className="text-sm md:text-base font-medium text-zinc-800 dark:text-zinc-200 mb-1">{item.translation}</p>
                                   <p className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-500 leading-relaxed">{item.definition}</p>
@@ -2945,6 +3488,7 @@ return (
         isAddingFolder={isAddingFolder}
         setIsAddingFolder={setIsAddingFolder}
         savedInFolders={itemToSave?.savedInFolders || []}
+        isSaving={isSaving}
       />
 
       <style>{`
@@ -2955,6 +3499,7 @@ return (
         .dark .prose pre { background-color: #18181b; }
         .dark .prose code { color: #818cf8; }
       `}</style>
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   </>
   );

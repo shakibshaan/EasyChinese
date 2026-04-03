@@ -132,7 +132,7 @@ Rules:
                 }
               }
             },
-            required: ["originalText", "translatedText", "breakdown", "grammar", "contextUsage", "contextExamples", "educationalConfidenceScore"]
+            required: ["originalText", "translatedText", "pinyin", "tokens", "breakdown", "grammar", "contextUsage", "contextExamples", "educationalConfidenceScore"]
           }
         }
       });

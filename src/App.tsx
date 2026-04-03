@@ -740,31 +740,63 @@ const Auth = ({ user, onOpenAuthModal }: { user: User | null, onOpenAuthModal: (
   );
 };
 
-const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true, size: 'sm' | 'lg' = 'lg', isLibrary: boolean = false) => {
-  if (!tokens) {
+const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true, size: 'sm' | 'lg' | 'mcq' = 'lg', isLibrary: boolean = false) => {
+  const textLength = text.length;
+  const isLong = textLength > 15;
+  const isVeryLong = textLength > 30;
+
+  // If tokens are missing, try to create them if pinyin is available
+  let displayTokens = tokens;
+  if (!displayTokens && pinyin && showChinese) {
+    const chineseChars = Array.from(text).filter(c => !c.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/));
+    const pinyinSyllables = pinyin.trim().split(/\s+/);
+    
+    // If lengths match, we can pair them
+    if (chineseChars.length === pinyinSyllables.length) {
+      displayTokens = [];
+      let pinyinIdx = 0;
+      for (const char of Array.from(text)) {
+        if (!char.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/)) {
+          displayTokens.push({ text: char, pinyin: pinyinSyllables[pinyinIdx++] });
+        } else {
+          displayTokens.push({ text: char });
+        }
+      }
+    }
+  }
+
+  if (!displayTokens) {
     const actualShowChinese = showChinese || (!showChinese && !pinyin);
     return (
-      <div className={cn("flex flex-col", size === 'lg' ? "items-center" : "items-start")}>
+      <div className={cn("flex flex-col", size === 'lg' || size === 'mcq' ? "items-center" : "items-start")}>
         {actualShowChinese && (
           <span className={cn(
-            "font-serif leading-tight text-zinc-900 dark:text-white", 
+            "font-serif leading-tight text-zinc-900 dark:text-white text-center", 
             size === 'lg' 
               ? (showPinyin 
-                  ? (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl") 
-                  : (isLibrary ? "text-7xl md:text-8xl" : "text-4xl md:text-6xl")) 
-              : "text-2xl"
+                  ? (isVeryLong ? "text-2xl md:text-4xl" : isLong ? "text-3xl md:text-5xl" : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl")) 
+                  : (isVeryLong ? "text-3xl md:text-5xl" : isLong ? "text-4xl md:text-6xl" : (isLibrary ? "text-7xl md:text-8xl" : "text-5xl md:text-7xl"))) 
+              : size === 'mcq'
+                ? (showPinyin
+                    ? (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl")
+                    : (isVeryLong ? "text-2xl md:text-3xl" : isLong ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"))
+                : "text-2xl"
           )}>
             {text}
           </span>
         )}
         {showPinyin && pinyin && (
           <span className={cn(
-            "font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", 
+            "font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter text-center", 
             size === 'lg' 
               ? (actualShowChinese 
-                  ? (isLibrary ? "text-xl md:text-2xl mt-1" : "text-sm md:text-base mt-1") 
-                  : (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl")) 
-              : "text-base mt-1"
+                  ? (isVeryLong ? "text-xs md:text-sm mt-1" : isLong ? "text-sm md:text-base mt-1" : (isLibrary ? "text-xl md:text-2xl mt-1" : "text-base md:text-lg mt-1")) 
+                  : (isVeryLong ? "text-2xl md:text-4xl" : isLong ? "text-3xl md:text-5xl" : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl"))) 
+              : size === 'mcq'
+                ? (actualShowChinese
+                    ? (isVeryLong ? "text-[10px] md:text-xs mt-0.5" : isLong ? "text-xs md:text-sm mt-0.5" : "text-sm md:text-base mt-1")
+                    : (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl"))
+                : "text-base mt-1"
           )}>
             {pinyin}
           </span>
@@ -774,8 +806,12 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
   }
   
   return (
-    <div className={cn("flex flex-wrap gap-x-1 md:gap-x-2 gap-y-2", size === 'lg' ? "justify-center md:gap-y-4" : "justify-start")}>
-      {tokens.map((token, idx) => {
+    <div className={cn(
+      "flex flex-wrap gap-x-1 md:gap-x-2 gap-y-2", 
+      size === 'lg' || size === 'mcq' ? "justify-center md:gap-y-4" : "justify-start",
+      size === 'mcq' && "gap-x-0.5 md:gap-x-1"
+    )}>
+      {displayTokens.map((token, idx) => {
         const isPunctuation = !token.pinyin;
         const tokenShowChinese = showChinese || isPunctuation;
         return (
@@ -785,9 +821,13 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                 "font-serif text-zinc-900 dark:text-white leading-none", 
                 size === 'lg' 
                   ? (showPinyin && !isPunctuation 
-                      ? (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl") 
-                      : (isLibrary ? "text-7xl md:text-8xl" : "text-4xl md:text-6xl")) 
-                  : "text-2xl"
+                      ? (isVeryLong ? "text-2xl md:text-4xl" : isLong ? "text-3xl md:text-5xl" : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl")) 
+                      : (isVeryLong ? "text-3xl md:text-5xl" : isLong ? "text-4xl md:text-6xl" : (isLibrary ? "text-7xl md:text-8xl" : "text-5xl md:text-7xl"))) 
+                  : size === 'mcq'
+                    ? (showPinyin && !isPunctuation
+                        ? (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl")
+                        : (isVeryLong ? "text-2xl md:text-3xl" : isLong ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"))
+                    : "text-2xl"
               )}>
                 {token.text}
               </span>
@@ -797,9 +837,13 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                 "font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tighter", 
                 size === 'lg' 
                   ? (tokenShowChinese 
-                      ? (isLibrary ? "text-xl md:text-2xl mt-1" : "text-sm md:text-base mt-1") 
-                      : (isLibrary ? "text-6xl md:text-7xl" : "text-3xl md:text-5xl")) 
-                  : "text-base mt-1"
+                      ? (isVeryLong ? "text-xs md:text-sm mt-1" : isLong ? "text-sm md:text-base mt-1" : (isLibrary ? "text-xl md:text-2xl mt-1" : "text-base md:text-lg mt-1")) 
+                      : (isVeryLong ? "text-2xl md:text-4xl" : isLong ? "text-3xl md:text-5xl" : (isLibrary ? "text-6xl md:text-7xl" : "text-4xl md:text-6xl"))) 
+                  : size === 'mcq'
+                    ? (tokenShowChinese
+                        ? (isVeryLong ? "text-[10px] md:text-xs mt-0.5" : isLong ? "text-xs md:text-sm mt-0.5" : "text-sm md:text-base mt-1")
+                        : (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl"))
+                    : "text-base mt-1"
               )}>
                 {token.pinyin}
               </span>
@@ -822,6 +866,12 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
   setPinyinMode: (mode: boolean) => void;
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
+  const [lastCardId, setLastCardId] = useState(card?.id);
+
+  if (card?.id !== lastCardId) {
+    setIsFlipped(false);
+    setLastCardId(card?.id);
+  }
 
   useEffect(() => {
     setIsFlipped(false);
@@ -934,6 +984,141 @@ const Flashcard = ({ card, onNext, onPrev, onDelete, total, current, pinyinMode,
           <RotateCw size={16} />
           Flip
         </button>
+      </div>
+    </div>
+  );
+};
+
+const MCQTest = ({ 
+  card, 
+  allCards, 
+  onAnswer, 
+  pinyinMode, 
+  setPinyinMode 
+}: { 
+  card: any; 
+  allCards: any[]; 
+  onAnswer: (correct: boolean) => void;
+  pinyinMode: boolean;
+  setPinyinMode: (mode: boolean) => void;
+}) => {
+  const [options, setOptions] = useState<{meaning: string, isCorrect: boolean}[]>([]);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [lastCardId, setLastCardId] = useState(card?.id);
+
+  if (card?.id !== lastCardId) {
+    setSelectedOption(null);
+    setIsAnswered(false);
+    setLastCardId(card?.id);
+  }
+
+  // Helper to get the English/Translation side of a card
+  const getEnglishText = (c: any) => {
+    if (!c) return '';
+    const isFrontChinese = !c.front.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/);
+    return isFrontChinese ? c.back : c.front;
+  };
+
+  useEffect(() => {
+    if (!card) return;
+    const correctMeaning = getEnglishText(card);
+    
+    // Get all unique cards from allCards as potential distractors
+    // We filter by English meaning to ensure distractors are distinct from the correct answer
+    const otherCards = allCards.filter(c => getEnglishText(c) !== correctMeaning);
+    
+    // Use a Map to ensure unique English meanings among distractors
+    const uniqueDistractorsMap = new Map();
+    otherCards.forEach(c => {
+      const eng = getEnglishText(c);
+      if (eng && !uniqueDistractorsMap.has(eng)) {
+        uniqueDistractorsMap.set(eng, c);
+      }
+    });
+    
+    const uniqueDistractors = Array.from(uniqueDistractorsMap.values());
+    
+    // Shuffle and pick 3 distractors
+    const distractors = uniqueDistractors.sort(() => Math.random() - 0.5).slice(0, 3);
+    
+    const finalOptions = [
+      { meaning: correctMeaning, isCorrect: true },
+      ...distractors.map(d => ({ meaning: getEnglishText(d), isCorrect: false }))
+    ].sort(() => Math.random() - 0.5);
+    
+    setOptions(finalOptions);
+    setSelectedOption(null);
+    setIsAnswered(false);
+  }, [card, allCards]);
+
+  const handleSelect = (idx: number) => {
+    if (isAnswered) return;
+    setSelectedOption(idx);
+    setIsAnswered(true);
+    
+    setTimeout(() => {
+      onAnswer(options[idx].isCorrect);
+    }, 1000);
+  };
+
+  const isFrontChinese = !card.front.match(/^[a-zA-Z0-9\s.,!?;:'"]+$/);
+  const chineseText = isFrontChinese ? card.front : card.back;
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex justify-end mb-4">
+        <label className="flex items-center cursor-pointer gap-2 select-none">
+          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Pinyin Mode</span>
+          <div className="relative">
+            <input type="checkbox" className="sr-only" checked={pinyinMode} onChange={() => setPinyinMode(!pinyinMode)} />
+            <div className={cn("block w-10 h-6 rounded-full transition-colors", pinyinMode ? "bg-indigo-500" : "bg-zinc-300 dark:bg-zinc-700")}></div>
+            <div className={cn("dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform", pinyinMode ? "transform translate-x-4" : "")}></div>
+          </div>
+        </label>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center py-8">
+        <div className="mb-12 text-center w-full max-w-2xl mx-auto">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-600 mb-4 block">Question</span>
+          <div className="flex items-center gap-4 justify-center">
+            {renderTokenizedText(chineseText, card.tokens, card.pinyin, pinyinMode, !pinyinMode, 'mcq', card.isSystem)}
+            <button 
+              onClick={() => playAudio(chineseText)} 
+              className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+              title="Play pronunciation"
+            >
+              <Volume2 size={24} />
+            </button>
+          </div>
+        </div>
+
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+          {options.map((option, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSelect(idx)}
+              disabled={isAnswered}
+              className={cn(
+                "p-6 text-left rounded-2xl border-2 transition-all duration-200 flex items-center justify-between group",
+                !isAnswered 
+                  ? "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-lg" 
+                  : selectedOption === idx
+                    ? option.isCorrect 
+                      ? "bg-green-50 dark:bg-green-900/20 border-green-500 text-green-700 dark:text-green-400"
+                      : "bg-red-50 dark:bg-red-900/20 border-red-500 text-red-700 dark:text-red-400"
+                    : option.isCorrect
+                      ? "bg-green-50 dark:bg-green-900/20 border-green-500 text-green-700 dark:text-green-400"
+                      : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 opacity-50"
+              )}
+            >
+              <span className="text-lg font-medium">{option.meaning}</span>
+              {isAnswered && (
+                option.isCorrect ? <CheckCircle2 size={24} className="text-green-500" /> : selectedOption === idx ? <X size={24} className="text-red-500" /> : null
+              )}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1454,6 +1639,7 @@ function App() {
   const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'analysis' | 'flashcards' | 'test' | 'results'>('analysis');
+  const [testMode, setTestMode] = useState<'flashcard' | 'mcq'>('flashcard');
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [pinyinMode, setPinyinMode] = useState(false);
   const [testPile, setTestPile] = useState<FlashcardData[]>([]);
@@ -2605,8 +2791,19 @@ function App() {
     reader.readAsText(file);
   };
 
-  const startTest = () => {
+  const startTest = (mode: 'flashcard' | 'mcq' = 'flashcard') => {
     if (activeFolderCards.length === 0) return;
+    
+    if (mode === 'mcq' && activeFolderCards.length < 4) {
+      console.log("MCQ test requirement not met:", activeFolderCards.length);
+      toast.error("Add at least 4 cards to start an MCQ test!", {
+        description: "MCQ mode requires 4 unique cards to generate options.",
+        duration: 5000,
+      });
+      return;
+    }
+
+    setTestMode(mode);
     setTestPile([...activeFolderCards]);
     setFlashcardIndex(0);
     setCorrectCount(0);
@@ -2718,11 +2915,11 @@ function App() {
 
 return (
   <>
+    <Toaster position="top-center" richColors />
     <AnimatePresence>
       {!isDataReady && <LoadingScreen key="loading" />}
     </AnimatePresence>
     <div className={cn("flex flex-col h-[100dvh] overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
-      <Toaster position="bottom-right" richColors />
       
       {/* Header */}
       <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-30">
@@ -3284,13 +3481,24 @@ return (
                           <input type="file" accept=".csv" onChange={handleCsvImport} className="hidden" />
                         </label>
                       )}
-                      <button 
-                        onClick={startTest}
-                        disabled={activeFolderCards.length === 0}
-                        className="py-2 px-6 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 disabled:opacity-50"
-                      >
-                        Start Test
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => startTest('flashcard')}
+                          disabled={activeFolderCards.length === 0}
+                          className="py-2 px-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <Zap size={16} />
+                          Flashcards
+                        </button>
+                        <button 
+                          onClick={() => startTest('mcq')}
+                          disabled={activeFolderCards.length === 0}
+                          className="py-2 px-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-sm font-bold shadow-lg hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <Brain size={16} />
+                          MCQ Test
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -3438,7 +3646,7 @@ return (
 
                   <div className="flex gap-4">
                     <button 
-                      onClick={startTest}
+                      onClick={() => startTest(testMode)}
                       className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/30"
                     >
                       Try Again
@@ -3462,31 +3670,62 @@ return (
                       {testPile.length - flashcardIndex} cards remaining
                     </div>
                   </div>
-                  <div className="h-[500px] max-w-xl mx-auto">
-                    <Flashcard 
-                      card={testPile[flashcardIndex]} 
-                      total={testPile.length}
-                      current={flashcardIndex}
-                      pinyinMode={pinyinMode}
-                      setPinyinMode={setPinyinMode}
-                      onNext={() => handleTestMark(true)}
-                      onPrev={() => handleTestMark(false)}
-                    />
+                  <div className={cn("max-w-xl mx-auto", testMode === 'mcq' ? "h-auto" : "h-[500px]")}>
+                    <AnimatePresence mode="wait">
+                      {testMode === 'flashcard' ? (
+                        <motion.div
+                          key={testPile[flashcardIndex].id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          transition={{ duration: 0.2 }}
+                          className="h-full"
+                        >
+                          <Flashcard 
+                            card={testPile[flashcardIndex]} 
+                            total={testPile.length}
+                            current={flashcardIndex}
+                            pinyinMode={pinyinMode}
+                            setPinyinMode={setPinyinMode}
+                            onNext={() => handleTestMark(true)}
+                            onPrev={() => handleTestMark(false)}
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key={testPile[flashcardIndex].id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <MCQTest 
+                            card={testPile[flashcardIndex]} 
+                            allCards={activeFolderCards}
+                            onAnswer={handleTestMark}
+                            pinyinMode={pinyinMode}
+                            setPinyinMode={setPinyinMode}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div className="max-w-xl mx-auto flex gap-4">
-                    <button 
-                      onClick={() => handleTestMark(false)}
-                      className="flex-1 py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-bold hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10"
-                    >
-                      Forgot
-                    </button>
-                    <button 
-                      onClick={() => handleTestMark(true)}
-                      className="flex-1 py-4 bg-green-500/10 text-green-500 border border-green-500/20 rounded-2xl font-bold hover:bg-green-500 hover:text-white transition-all shadow-lg shadow-green-500/10"
-                    >
-                      Remembered
-                    </button>
-                  </div>
+                  {testMode === 'flashcard' && (
+                    <div className="max-w-xl mx-auto flex gap-4">
+                      <button 
+                        onClick={() => handleTestMark(false)}
+                        className="flex-1 py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-bold hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10"
+                      >
+                        Forgot
+                      </button>
+                      <button 
+                        onClick={() => handleTestMark(true)}
+                        className="flex-1 py-4 bg-green-500/10 text-green-500 border border-green-500/20 rounded-2xl font-bold hover:bg-green-500 hover:text-white transition-all shadow-lg shadow-green-500/10"
+                      >
+                        Remembered
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

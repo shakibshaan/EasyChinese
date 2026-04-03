@@ -1,4 +1,10 @@
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+// import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+//
+// NOTE: Gemini integration is currently commented out in favor of DeepSeek.
+// To switch back to Gemini:
+// 1. Uncomment the import above.
+// 2. Uncomment the Gemini API call logic below.
+// 3. Comment out the DeepSeek fetch logic.
 
 export const config = {
   runtime: "nodejs",
@@ -21,18 +27,8 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: "Text too long (max 200 chars)" });
     }
 
-    const apiKey = process.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("Backend: VITE_GEMINI_API_KEY is missing");
-      return res.status(500).json({ success: false, error: "AI configuration error" });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
     const trimmedText = text.trim();
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: `Analyze for a language learner (ZH ↔ EN). 
+    const prompt = `Analyze for a language learner (ZH ↔ EN). 
     1. If EN, translate to ZH + Pinyin.
     2. If ZH, provide Pinyin.
     3. Word-by-word breakdown.
@@ -41,8 +37,57 @@ export default async function handler(req: any, res: any) {
     6. "tokens" array for ZH sentence (text & pinyin). Include punctuation (no pinyin).
     7. In grammar/contextUsage, always add Pinyin in () after ZH chars.
     8. Be extremely concise. Minimize characters while remaining helpful.
+    9. Respond ONLY in valid JSON format.
     
-    Sentence: "${trimmedText}"`,
+    Sentence: "${trimmedText}"`;
+
+    // --- DEEPSEEK INTEGRATION ---
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) {
+      console.error("Backend: DEEPSEEK_API_KEY is missing");
+      return res.status(500).json({ success: false, error: "AI configuration error" });
+    }
+
+    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: "You are a helpful Chinese language learning assistant. Respond strictly in JSON format as requested." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`DeepSeek API error: ${JSON.stringify(errorData)}`);
+    }
+
+    const result = await response.json();
+    const resultText = result.choices[0].message.content || "{}";
+    const cleanJson = resultText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    const data = JSON.parse(cleanJson);
+
+    return res.status(200).json({ success: true, data });
+
+    /*
+    // --- GEMINI FALLBACK (DISABLED) ---
+    const apiKey = process.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("Backend: VITE_GEMINI_API_KEY is missing");
+      return res.status(500).json({ success: false, error: "AI configuration error" });
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: prompt,
       config: {
         thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
         responseMimeType: "application/json",
@@ -103,8 +148,9 @@ export default async function handler(req: any, res: any) {
     const data = JSON.parse(cleanJson);
 
     return res.status(200).json({ success: true, data });
+    */
   } catch (error) {
-    console.error("Gemini Proxy Error:", error);
+    console.error("AI Proxy Error:", error);
     return res.status(500).json({ 
       success: false, 
       error: "AI request failed",

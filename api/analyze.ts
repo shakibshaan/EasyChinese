@@ -1,8 +1,8 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 
 export const config = {
   runtime: "nodejs",
-  regions: ["hkg1"],
+  regions: ["sin1"],
 };
 
 export default async function handler(req: any, res: any) {
@@ -21,17 +21,17 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: "Text too long (max 200 chars)" });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("Backend: GEMINI_API_KEY is missing");
-      return res.status(500).json({ success: false, error: "AI configuration error: API key missing" });
+      console.error("Backend: VITE_GEMINI_API_KEY is missing");
+      return res.status(500).json({ success: false, error: "AI configuration error" });
     }
 
     const ai = new GoogleGenAI({ apiKey });
     const trimmedText = text.trim();
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: `Analyze for a language learner (ZH ↔ EN). 
     1. If EN, translate to ZH + Pinyin.
     2. If ZH, provide Pinyin.
@@ -44,6 +44,7 @@ export default async function handler(req: any, res: any) {
     
     Sentence: "${trimmedText}"`,
       config: {
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -97,21 +98,13 @@ export default async function handler(req: any, res: any) {
       }
     });
 
-    const resultText = response.text;
-    if (!resultText) {
-      throw new Error("Empty response from AI");
-    }
-
+    const resultText = response.text || "{}";
     const cleanJson = resultText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
     const data = JSON.parse(cleanJson);
 
     return res.status(200).json({ success: true, data });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Gemini Proxy Error:", error);
-    return res.status(500).json({ 
-      success: false, 
-      error: error.message || "AI request failed",
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    return res.status(500).json({ success: false, error: "AI request failed" });
   }
 }

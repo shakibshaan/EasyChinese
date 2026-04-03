@@ -8,7 +8,7 @@
 
 export const config = {
   runtime: "nodejs",
-  regions: ["sin1"],
+  regions: ["hkg1"],
 };
 
 export default async function handler(req: any, res: any) {

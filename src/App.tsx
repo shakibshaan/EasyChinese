@@ -28,7 +28,9 @@ import {
   Home,
   Volume2,
   Settings,
-  Info
+  Info,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
@@ -187,7 +189,7 @@ const ThemeToggle = ({ theme, toggle }: { theme: 'dark' | 'light', toggle: () =>
     onClick={toggle}
     className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all shadow-sm border border-zinc-200 dark:border-zinc-700"
   >
-    {theme === 'dark' ? <RotateCw size={18} /> : <RotateCw size={18} className="rotate-180" />}
+    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
   </button>
 );
 
@@ -321,112 +323,129 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800">
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
-          <X size={20} />
-        </button>
-        
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">
-          {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
-        </h2>
-
-        {mode === 'login' && (
-          <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex gap-3">
-            <Info size={18} className="text-indigo-500 shrink-0 mt-0.5" />
-            <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
-              <strong>Note:</strong> If you previously used Google to sign in, please continue with Google. Using email/password with the same email address will create a separate account.
-            </p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Email</label>
-            <input 
-              type="email" 
-              required 
-              value={email} 
-              onChange={e => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xl" 
+              onClick={onClose} 
             />
-          </div>
-
-          {mode !== 'reset' && (
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Password</label>
-              <input 
-                type="password" 
-                required 
-                value={password} 
-                onChange={e => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
-              />
-            </div>
-          )}
-
-          {mode === 'signup' && (
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Confirm Password</label>
-              <input 
-                type="password" 
-                required 
-                value={confirmPassword} 
-                onChange={e => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
-              />
-            </div>
-          )}
-
-          {mode !== 'reset' && (
-            <CustomCaptcha key={mode + captchaKey} onVerify={setCaptchaVerified} />
-          )}
-
-          <button 
-            type="submit" 
-            disabled={loading || (!captchaVerified && mode !== 'reset')}
-            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-colors disabled:opacity-50 flex items-center justify-center"
-          >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link')}
-          </button>
-        </form>
-
-        <div className="mt-6 space-y-4">
-          {mode === 'login' && (
-            <div className="text-center">
-              <button onClick={() => setMode('reset')} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-                Forgot your password?
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800"
+            >
+              <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+                <X size={20} />
               </button>
-            </div>
-          )}
+              
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">
+                {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
+              </h2>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-200 dark:border-zinc-700"></div></div>
-            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white dark:bg-zinc-900 text-zinc-500">Or continue with</span></div>
-          </div>
+              {mode === 'login' && (
+                <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex gap-3">
+                  <Info size={18} className="text-indigo-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                    <strong>Note:</strong> If you previously used Google to sign in, please continue with Google. Using email/password with the same email address will create a separate account.
+                  </p>
+                </div>
+              )}
 
-          <button 
-            onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors font-medium"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-            </svg>
-            Google
-          </button>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Email</label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                  />
+                </div>
 
-          <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 mt-4">
-            {mode === 'login' ? (
-              <>Don't have an account? <button onClick={() => setMode('signup')} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Sign up</button></>
-            ) : (
-              <>Already have an account? <button onClick={() => setMode('login')} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Sign in</button></>
-            )}
-          </div>
-        </div>
-      </div>
+                {mode !== 'reset' && (
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Password</label>
+                    <input 
+                      type="password" 
+                      required 
+                      value={password} 
+                      onChange={e => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                    />
+                  </div>
+                )}
+
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Confirm Password</label>
+                    <input 
+                      type="password" 
+                      required 
+                      value={confirmPassword} 
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
+                    />
+                  </div>
+                )}
+
+                {mode !== 'reset' && (
+                  <CustomCaptcha key={mode + captchaKey} onVerify={setCaptchaVerified} />
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={loading || (!captchaVerified && mode !== 'reset')}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-colors disabled:opacity-50 flex items-center justify-center"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link')}
+                </button>
+              </form>
+
+              <div className="mt-6 space-y-4">
+                {mode === 'login' && (
+                  <div className="text-center">
+                    <button onClick={() => setMode('reset')} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+                      Forgot your password?
+                    </button>
+                  </div>
+                )}
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-200 dark:border-zinc-700"></div></div>
+                  <div className="relative flex justify-center text-sm"><span className="px-2 bg-white dark:bg-zinc-900 text-zinc-500">Or continue with</span></div>
+                </div>
+
+                <button 
+                  onClick={handleGoogleLogin}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors font-medium"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                  </svg>
+                  Google
+                </button>
+
+                <div className="text-center text-sm text-zinc-600 dark:text-zinc-400 mt-4">
+                  {mode === 'login' ? (
+                    <>Don't have an account? <button onClick={() => setMode('signup')} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Sign up</button></>
+                  ) : (
+                    <>Already have an account? <button onClick={() => setMode('login')} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Sign in</button></>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -504,90 +523,107 @@ const UserSettingsModal = ({ isOpen, onClose, user, localPic, onUpdatePic, onPro
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
-          <X size={20} />
-        </button>
-        
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Settings</h2>
-
-        <div className="space-y-8">
-          {/* Profile Picture */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative group">
-              <img src={displayPic} alt="Profile" className="w-24 h-24 rounded-full border-4 border-zinc-100 dark:border-zinc-800 object-cover" referrerPolicy="no-referrer" />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <span className="text-xs font-bold">Change</span>
-              </button>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-zinc-900 dark:text-white">{user.email}</p>
-              <p className="text-xs text-zinc-500">Signed in via {isPasswordProvider ? 'Email' : 'Google'}</p>
-            </div>
-          </div>
-
-          {/* Update Name */}
-          <form onSubmit={handleUpdateName} className="space-y-3">
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Profile</h3>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1">Display Name</label>
-              <input 
-                type="text" 
-                value={displayName} 
-                onChange={e => setDisplayName(e.target.value)}
-                placeholder="Enter your name"
-                className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
-              />
-            </div>
-            <button 
-              type="submit" 
-              disabled={loadingName || displayName === user.displayName}
-              className="w-full py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center text-sm"
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xl" 
+              onClick={onClose} 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto custom-scrollbar"
             >
-              {loadingName ? <Loader2 className="animate-spin" size={16} /> : 'Save Name'}
-            </button>
-          </form>
-
-          {/* Update Password */}
-          {isPasswordProvider && (
-            <form onSubmit={handleUpdatePassword} className="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Security</h3>
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 mb-1">Current Password</label>
-                <input 
-                  type="password" 
-                  required
-                  value={currentPassword} 
-                  onChange={e => setCurrentPassword(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-zinc-500 mb-1">New Password</label>
-                <input 
-                  type="password" 
-                  required
-                  value={newPassword} 
-                  onChange={e => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={loadingPassword || !currentPassword || !newPassword}
-                className="w-full py-2 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500 transition-colors disabled:opacity-50 flex items-center justify-center text-sm"
-              >
-                {loadingPassword ? <Loader2 className="animate-spin" size={16} /> : 'Update Password'}
+              <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+                <X size={20} />
               </button>
-            </form>
-          )}
-        </div>
-      </div>
+              
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Settings</h2>
+
+              <div className="space-y-8">
+                {/* Profile Picture */}
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative group">
+                    <img src={displayPic} alt="Profile" className="w-24 h-24 rounded-full border-4 border-zinc-100 dark:border-zinc-800 object-cover" referrerPolicy="no-referrer" />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute inset-0 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <span className="text-xs font-bold">Change</span>
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{user.email}</p>
+                    <p className="text-xs text-zinc-500">Signed in via {isPasswordProvider ? 'Email' : 'Google'}</p>
+                  </div>
+                </div>
+
+                {/* Update Name */}
+                <form onSubmit={handleUpdateName} className="space-y-3">
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Profile</h3>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1">Display Name</label>
+                    <input 
+                      type="text" 
+                      value={displayName} 
+                      onChange={e => setDisplayName(e.target.value)}
+                      placeholder="Enter your name"
+                      className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={loadingName || displayName === user.displayName}
+                    className="w-full py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center text-sm"
+                  >
+                    {loadingName ? <Loader2 className="animate-spin" size={16} /> : 'Save Name'}
+                  </button>
+                </form>
+
+                {/* Update Password */}
+                {isPasswordProvider && (
+                  <form onSubmit={handleUpdatePassword} className="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Security</h3>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-500 mb-1">Current Password</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={currentPassword} 
+                        onChange={e => setCurrentPassword(e.target.value)}
+                        className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-500 mb-1">New Password</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={newPassword} 
+                        onChange={e => setNewPassword(e.target.value)}
+                        className="w-full px-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white text-sm"
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={loadingPassword || !currentPassword || !newPassword}
+                      className="w-full py-2 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500 transition-colors disabled:opacity-50 flex items-center justify-center text-sm"
+                    >
+                      {loadingPassword ? <Loader2 className="animate-spin" size={16} /> : 'Update Password'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -601,7 +637,7 @@ const LogoutConfirmModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, o
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xl"
       />
       <motion.div 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -989,7 +1025,7 @@ const SidebarContent = ({
               <button 
                 onClick={bootstrapSystemData} 
                 disabled={isBootstrapping}
-                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wider p-2 -mr-2 disabled:opacity-50"
+                className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:underline uppercase tracking-wider p-2 -mr-2 disabled:opacity-50"
               >
                 {isBootstrapping ? "..." : "Bootstrap"}
               </button>
@@ -1011,7 +1047,7 @@ const SidebarContent = ({
                     }}
                     className={cn(
                       "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
-                      activeSystemFolderId === f.id && isLibraryView ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                      activeSystemFolderId === f.id && isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -1042,7 +1078,7 @@ const SidebarContent = ({
                           }}
                           className={cn(
                             "w-full flex items-center justify-between p-2 rounded-lg transition-all text-xs cursor-pointer",
-                            activeSystemFolderId === sf.id && isLibraryView ? "bg-indigo-500/10 text-indigo-500 font-bold" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-500 dark:text-zinc-500"
+                            activeSystemFolderId === sf.id && isLibraryView ? "bg-zinc-900/10 dark:bg-zinc-100/10 text-zinc-900 dark:text-zinc-100 font-bold" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-500 dark:text-zinc-500"
                           )}
                         >
                           <span className="truncate">{sf.name}</span>
@@ -1060,7 +1096,7 @@ const SidebarContent = ({
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">My Folders</h3>
-            <button onClick={() => setIsAddingFolder(true)} className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wider p-2 -mr-2">+ New Folder</button>
+            <button onClick={() => setIsAddingFolder(true)} className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:underline uppercase tracking-wider p-2 -mr-2">+ New Folder</button>
           </div>
 
           {isAddingFolder && (
@@ -1072,10 +1108,10 @@ const SidebarContent = ({
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                 placeholder="Folder name..."
-                className="w-full p-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="w-full p-2 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-1 focus:ring-zinc-500 outline-none"
               />
               <div className="flex gap-2">
-                <button onClick={handleCreateFolder} className="flex-1 py-2 text-xs bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-all">Add</button>
+                <button onClick={handleCreateFolder} className="flex-1 py-2 text-xs bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-white transition-all">Add</button>
                 <button onClick={() => setIsAddingFolder(false)} className="flex-1 py-2 text-xs bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 rounded-xl font-bold hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-all">Cancel</button>
               </div>
             </div>
@@ -1103,7 +1139,7 @@ const SidebarContent = ({
                   }}
                   className={cn(
                     "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
-                    activeFolderId === f.id && !isLibraryView ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                    activeFolderId === f.id && !isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -1301,7 +1337,7 @@ const FolderSelectModal = ({
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xl"
       />
       <motion.div 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -2685,169 +2721,153 @@ return (
     <AnimatePresence>
       {!isDataReady && <LoadingScreen key="loading" />}
     </AnimatePresence>
-    <div className={cn("flex h-[100dvh] overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
+    <div className={cn("flex flex-col h-[100dvh] overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
       <Toaster position="bottom-right" richColors />
-      {/* Sidebar - Desktop */}
-      <motion.aside 
-        initial={false}
-        animate={{ width: isSidebarOpen ? 320 : 0, opacity: isSidebarOpen ? 1 : 0 }}
-        className="hidden lg:flex h-full bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex-col shadow-xl z-20 overflow-hidden"
-      >
-        <SidebarContent 
-          user={user}
-          folders={folders}
-          activeFolderId={activeFolderId}
-          setActiveFolderId={setActiveFolderId}
-          systemFolders={systemFolders}
-          activeSystemFolderId={activeSystemFolderId}
-          setActiveSystemFolderId={setActiveSystemFolderId}
-          isLibraryView={isLibraryView}
-          setIsLibraryView={setIsLibraryView}
-          bootstrapSystemData={bootstrapSystemData}
-          isBootstrapping={isBootstrapping}
-          flashcards={flashcards}
-          setFlashcardIndex={setFlashcardIndex}
-          setViewMode={setViewMode}
-          setIsSidebarOpen={setIsSidebarOpen}
-          isAddingFolder={isAddingFolder}
-          setIsAddingFolder={setIsAddingFolder}
-          newFolderName={newFolderName}
-          setNewFolderName={setNewFolderName}
-          handleCreateFolder={handleCreateFolder}
-          folderToDelete={folderToDelete}
-          setFolderToDelete={setFolderToDelete}
-          sentenceToDelete={sentenceToDelete}
-          setSentenceToDelete={setSentenceToDelete}
-          handleDeleteFolder={handleDeleteFolder}
-          recentAnalyses={recentAnalyses}
-          setRecentAnalyses={setRecentAnalyses}
-          savedSentences={savedSentences}
-          setAnalysis={setAnalysis}
-          onOpenAuthModal={() => setIsAuthModalOpen(true)}
-        />
-      </motion.aside>
-
-      {/* Sidebar - Mobile Drawer */}
-      <AnimatePresence>
-        {!isSidebarOpen && (
-          <motion.div 
-            key="swipe-edge"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="lg:hidden fixed left-0 top-0 bottom-0 w-8 z-40 flex items-center justify-center"
-            onPan={(e, info) => {
-              if (info.offset.x > 40) {
-                setIsSidebarOpen(true);
-              }
-            }}
+      
+      {/* Header */}
+      <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-30">
+        <div className="flex items-center gap-2 md:gap-4">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-4 md:p-2 -ml-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
           >
-            <div className="w-1 h-12 bg-zinc-300 dark:bg-zinc-700 rounded-full flex items-center justify-center">
-              <ChevronRight size={16} className="text-zinc-500" />
-            </div>
-          </motion.div>
-        )}
-        {isSidebarOpen && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
-            />
-            <motion.aside 
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="lg:hidden fixed inset-y-0 left-0 w-[280px] bg-white dark:bg-zinc-900 z-50 flex flex-col shadow-2xl border-r border-zinc-200 dark:border-zinc-800"
-            >
-              <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-                <h1 className="text-lg font-serif font-bold text-rose-500 dark:text-rose-400">EasyChinese</h1>
-                <button onClick={() => setIsSidebarOpen(false)} className="p-3 -mr-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
-                  <X size={20} />
-                </button>
-              </div>
-              <SidebarContent 
-                user={user}
-                folders={folders}
-                activeFolderId={activeFolderId}
-                setActiveFolderId={setActiveFolderId}
-                systemFolders={systemFolders}
-                activeSystemFolderId={activeSystemFolderId}
-                setActiveSystemFolderId={setActiveSystemFolderId}
-                isLibraryView={isLibraryView}
-                setIsLibraryView={setIsLibraryView}
-                bootstrapSystemData={bootstrapSystemData}
-                isBootstrapping={isBootstrapping}
-                flashcards={flashcards}
-                setFlashcardIndex={setFlashcardIndex}
-                setViewMode={setViewMode}
-                setIsSidebarOpen={setIsSidebarOpen}
-                isAddingFolder={isAddingFolder}
-                setIsAddingFolder={setIsAddingFolder}
-                newFolderName={newFolderName}
-                setNewFolderName={setNewFolderName}
-                handleCreateFolder={handleCreateFolder}
-                folderToDelete={folderToDelete}
-                setFolderToDelete={setFolderToDelete}
-                sentenceToDelete={sentenceToDelete}
-                setSentenceToDelete={setSentenceToDelete}
-                handleDeleteFolder={handleDeleteFolder}
-                recentAnalyses={recentAnalyses}
-                setRecentAnalyses={setRecentAnalyses}
-                savedSentences={savedSentences}
-                setAnalysis={setAnalysis}
-                onOpenAuthModal={() => setIsAuthModalOpen(true)}
-              />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Header */}
-        <header className="sticky top-0 h-16 md:h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between px-3 md:px-6 shrink-0 z-30">
-          <div className="flex items-center gap-2 md:gap-4">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-4 md:p-2 -ml-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-            >
-              <Menu size={24} className="text-zinc-600 dark:text-zinc-400" />
-            </button>
+            <Menu size={24} className="text-zinc-600 dark:text-zinc-400" />
+          </button>
+          <button 
+            onClick={() => {
+              setViewMode('analysis');
+              setAnalysis(null);
+              setIsAnalyzing(false);
+            }}
+            className="flex items-center gap-2 md:gap-4 hover:opacity-80 transition-opacity"
+          >
+            <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">EasyChinese</h1>
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-2 md:gap-4">
+          <ThemeToggle theme={theme} toggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+          {viewMode !== 'analysis' || analysis ? (
             <button 
               onClick={() => {
                 setViewMode('analysis');
                 setAnalysis(null);
                 setIsAnalyzing(false);
               }}
-              className="flex items-center gap-2 md:gap-4 hover:opacity-80 transition-opacity"
+              className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl border-2 border-rose-500/20 dark:border-rose-400/20 bg-rose-500/5 dark:bg-rose-400/5 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white dark:hover:bg-rose-400 dark:hover:text-zinc-950 transition-all flex items-center gap-2 text-xs md:text-sm font-bold"
             >
-              <h1 className="text-sm md:text-lg font-serif font-bold tracking-tight text-rose-500 dark:text-rose-400">EasyChinese</h1>
+              <Home size={16} />
+              Back
             </button>
-          </div>
-          
-          <div className="flex items-center gap-2 md:gap-4">
-            <ThemeToggle theme={theme} toggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
-            {viewMode !== 'analysis' || analysis ? (
-              <button 
-                onClick={() => {
-                  setViewMode('analysis');
-                  setAnalysis(null);
-                  setIsAnalyzing(false);
-                }}
-                className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl border-2 border-rose-500/20 dark:border-rose-400/20 bg-rose-500/5 dark:bg-rose-400/5 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white dark:hover:bg-rose-400 dark:hover:text-zinc-950 transition-all flex items-center gap-2 text-xs md:text-sm font-bold"
-              >
-                <Home size={16} />
-                Back
-              </button>
-            ) : null}
-          </div>
-        </header>
+          ) : null}
+        </div>
+      </header>
 
-        <div className="flex-1 overflow-y-auto">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar - Desktop */}
+        <motion.aside 
+          initial={false}
+          animate={{ width: isSidebarOpen ? 320 : 0, opacity: isSidebarOpen ? 1 : 0 }}
+          className="hidden lg:flex h-full bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex-col shadow-xl z-20 overflow-hidden"
+        >
+          <SidebarContent 
+            user={user}
+            folders={folders}
+            activeFolderId={activeFolderId}
+            setActiveFolderId={setActiveFolderId}
+            systemFolders={systemFolders}
+            activeSystemFolderId={activeSystemFolderId}
+            setActiveSystemFolderId={setActiveSystemFolderId}
+            isLibraryView={isLibraryView}
+            setIsLibraryView={setIsLibraryView}
+            bootstrapSystemData={bootstrapSystemData}
+            isBootstrapping={isBootstrapping}
+            flashcards={flashcards}
+            setFlashcardIndex={setFlashcardIndex}
+            setViewMode={setViewMode}
+            setIsSidebarOpen={setIsSidebarOpen}
+            isAddingFolder={isAddingFolder}
+            setIsAddingFolder={setIsAddingFolder}
+            newFolderName={newFolderName}
+            setNewFolderName={setNewFolderName}
+            handleCreateFolder={handleCreateFolder}
+            folderToDelete={folderToDelete}
+            setFolderToDelete={setFolderToDelete}
+            sentenceToDelete={sentenceToDelete}
+            setSentenceToDelete={setSentenceToDelete}
+            handleDeleteFolder={handleDeleteFolder}
+            recentAnalyses={recentAnalyses}
+            setRecentAnalyses={setRecentAnalyses}
+            savedSentences={savedSentences}
+            setAnalysis={setAnalysis}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          />
+        </motion.aside>
+
+        {/* Sidebar - Mobile Drawer */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSidebarOpen(false)}
+                className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-xl z-40"
+              />
+              <motion.aside 
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="lg:hidden fixed inset-y-0 left-0 w-[280px] bg-white dark:bg-zinc-900 z-50 flex flex-col shadow-2xl border-r border-zinc-200 dark:border-zinc-800"
+              >
+                <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
+                  <h1 className="text-lg font-serif font-bold text-rose-500 dark:text-rose-400">EasyChinese</h1>
+                  <button onClick={() => setIsSidebarOpen(false)} className="p-3 -mr-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
+                    <X size={20} />
+                  </button>
+                </div>
+                <SidebarContent 
+                  user={user}
+                  folders={folders}
+                  activeFolderId={activeFolderId}
+                  setActiveFolderId={setActiveFolderId}
+                  systemFolders={systemFolders}
+                  activeSystemFolderId={activeSystemFolderId}
+                  setActiveSystemFolderId={setActiveSystemFolderId}
+                  isLibraryView={isLibraryView}
+                  setIsLibraryView={setIsLibraryView}
+                  bootstrapSystemData={bootstrapSystemData}
+                  isBootstrapping={isBootstrapping}
+                  flashcards={flashcards}
+                  setFlashcardIndex={setFlashcardIndex}
+                  setViewMode={setViewMode}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                  isAddingFolder={isAddingFolder}
+                  setIsAddingFolder={setIsAddingFolder}
+                  newFolderName={newFolderName}
+                  setNewFolderName={setNewFolderName}
+                  handleCreateFolder={handleCreateFolder}
+                  folderToDelete={folderToDelete}
+                  setFolderToDelete={setFolderToDelete}
+                  sentenceToDelete={sentenceToDelete}
+                  setSentenceToDelete={setSentenceToDelete}
+                  handleDeleteFolder={handleDeleteFolder}
+                  recentAnalyses={recentAnalyses}
+                  setRecentAnalyses={setRecentAnalyses}
+                  savedSentences={savedSentences}
+                  setAnalysis={setAnalysis}
+                  onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                />
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col relative overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
           <div className="max-w-6xl mx-auto p-4 md:p-8">
             <AnimatePresence mode="wait">
               {viewMode === 'analysis' ? (
@@ -3473,6 +3493,7 @@ return (
           </div>
         </div>
       </main>
+    </div>
 
       <FolderSelectModal 
         isOpen={isFolderSelectOpen}

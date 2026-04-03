@@ -107,5 +107,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Global Sentence Cache (Public Read, Authenticated Write)
+    // We allow authenticated users to write to the cache so that new sentences are cached for everyone.
+    match /global_sentence_cache/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
   }
 }

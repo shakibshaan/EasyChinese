@@ -113,6 +113,21 @@
         }
       },
       "required": ["folderId", "words"]
+    },
+    "GlobalSentenceCache": {
+      "title": "Global Sentence Cache",
+      "description": "A global cache of translated sentences to reduce API calls and ensure consistency.",
+      "type": "object",
+      "properties": {
+        "normalized_sentence": { "type": "string" },
+        "embedding_vector": { "type": "array", "items": { "type": "number" } },
+        "translation_json": { "type": "object" },
+        "model_version": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "last_used": { "type": "string", "format": "date-time" },
+        "hit_count": { "type": "number" }
+      },
+      "required": ["normalized_sentence", "translation_json", "model_version"]
     }
   },
   "firestore": {
@@ -135,6 +150,10 @@
     "/system_content/{contentId}": {
       "schema": "SystemContent",
       "description": "Bulk vocabulary data for system folders."
+    },
+    "/global_sentence_cache/{docId}": {
+      "schema": "GlobalSentenceCache",
+      "description": "Global semantic cache for sentence translations."
     }
   }
 }

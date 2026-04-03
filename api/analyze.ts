@@ -105,6 +105,10 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ success: true, data });
   } catch (error) {
     console.error("Gemini Proxy Error:", error);
-    return res.status(500).json({ success: false, error: "AI request failed" });
+    return res.status(500).json({ 
+      success: false, 
+      error: "AI request failed",
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 }

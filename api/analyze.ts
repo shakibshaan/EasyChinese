@@ -1,4 +1,4 @@
-// import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+ import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 //
 // NOTE: Gemini integration is currently commented out in favor of DeepSeek.
 // To switch back to Gemini:
@@ -40,7 +40,7 @@ export default async function handler(req: any, res: any) {
     9. Respond ONLY in valid JSON format.
     
     Sentence: "${trimmedText}"`;
-
+/*
     // --- DEEPSEEK INTEGRATION ---
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) {
@@ -75,8 +75,9 @@ export default async function handler(req: any, res: any) {
     const data = JSON.parse(cleanJson);
 
     return res.status(200).json({ success: true, data });
+    */
 
-    /*
+    
     // --- GEMINI FALLBACK (DISABLED) ---
     const apiKey = process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
@@ -148,7 +149,7 @@ export default async function handler(req: any, res: any) {
     const data = JSON.parse(cleanJson);
 
     return res.status(200).json({ success: true, data });
-    */
+    
   } catch (error) {
     console.error("AI Proxy Error:", error);
     return res.status(500).json({ 

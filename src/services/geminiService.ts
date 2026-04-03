@@ -41,7 +41,7 @@ export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || 'Analysis failed');
+    throw new Error(error.details || error.error || 'Analysis failed');
   }
 
   const result = await response.json();

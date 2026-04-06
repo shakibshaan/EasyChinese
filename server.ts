@@ -62,7 +62,7 @@ async function startServer() {
       const trimmedText = text.trim();
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite-preview",
+        model: "gemini-3-flash-preview",
         contents: `Analyze: "${trimmedText}"`,
         config: {
           systemInstruction: `You are a Chinese language learning assistant. Analyze the sentence and return JSON:
@@ -81,7 +81,6 @@ Rules:
 1. Tokens must match original text exactly.
 2. Grammar/Context must be extremely concise.
 3. Confidence < 85 if ambiguous or multiple meanings.`,
-          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
           temperature: 0.1,
           responseMimeType: "application/json",
           responseSchema: {

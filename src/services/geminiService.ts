@@ -1,3 +1,6 @@
+import { collection, query, where, getDocs, addDoc, serverTimestamp, updateDoc, doc, increment } from 'firebase/firestore';
+import { db, auth } from '../lib/firebase';
+
 export interface WordBreakdown {
   word: string;
   pinyin?: string;
@@ -31,6 +34,32 @@ export interface SentenceAnalysis {
 }
 
 export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
+  const normalizedText = text.trim().toLowerCase();
+  
+  // 1. Check Firestore Cache
+  try {
+    const cacheRef = collection(db, 'global_sentence_cache');
+    const q = query(cacheRef, where('normalized_sentence', '==', normalizedText));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const cacheDoc = querySnapshot.docs[0];
+      // Update hit count and last used in background if authenticated
+      if (auth.currentUser) {
+        updateDoc(doc(db, 'global_sentence_cache', cacheDoc.id), {
+          hit_count: increment(1),
+          last_used: serverTimestamp()
+        }).catch(console.error);
+      }
+      
+      return cacheDoc.data().translation_json as SentenceAnalysis;
+    }
+  } catch (error) {
+    console.error("Cache read error:", error);
+    // Continue to API if cache fails
+  }
+
+  // 2. Call API
   const response = await fetch('/api/analyze', {
     method: 'POST',
     headers: {
@@ -45,5 +74,23 @@ export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
   }
 
   const result = await response.json();
-  return result.data;
+  const data = result.data;
+
+  // 3. Save to Cache
+  if (auth.currentUser) {
+    try {
+      await addDoc(collection(db, 'global_sentence_cache'), {
+        normalized_sentence: normalizedText,
+        translation_json: data,
+        model_version: "gemini-3-flash-preview",
+        created_at: serverTimestamp(),
+        last_used: serverTimestamp(),
+        hit_count: 1
+      });
+    } catch (error) {
+      console.error("Cache write error:", error);
+    }
+  }
+
+  return data;
 }

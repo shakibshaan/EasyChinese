@@ -1134,6 +1134,7 @@ export default function AppWrapper() {
 
 interface SidebarProps {
   user: User | null;
+  isDataReady: boolean;
   folders: Folder[];
   activeFolderId: string | null;
   setActiveFolderId: (id: string | null) => void;
@@ -1167,6 +1168,7 @@ interface SidebarProps {
 
 const SidebarContent = ({
   user,
+  isDataReady,
   folders,
   activeFolderId,
   setActiveFolderId,
@@ -1303,69 +1305,79 @@ const SidebarContent = ({
           )}
           
           <div className="space-y-1">
-            {[...folders].sort((a, b) => {
-              if (a.isDefault) return -1;
-              if (b.isDefault) return 1;
-              
-              // Sort non-default folders by creation time (ascending)
-              const aTime = a.createdAt?.toMillis?.() || 0;
-              const bTime = b.createdAt?.toMillis?.() || 0;
-              return aTime - bTime;
-            }).map(f => (
-              <div key={f.id} className="group relative">
-                <div 
-                  onClick={() => { 
-                    setActiveFolderId(f.id); 
-                    setActiveSystemFolderId(null);
-                    setIsLibraryView(false);
-                    setFlashcardIndex(0);
-                    setViewMode('flashcards');
-                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
-                    activeFolderId === f.id && !isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <BookOpen size={16} />
-                    <span className="font-medium truncate max-w-[140px]">{f.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold opacity-60">
-                      {flashcards.filter(c => c.folderId === f.id).length + savedSentences.filter(s => s.folderId === f.id).length}
-                    </span>
-                    {!f.isDefault && (
-                      <div className="flex items-center">
-                        {folderToDelete === f.id ? (
-                          <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
-                              className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
-                            >
-                              Confirm
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setFolderToDelete(null); }}
-                              className="p-1 text-white/70 hover:text-white"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setFolderToDelete(f.id); }}
-                            className="p-3 md:p-1.5 hover:bg-white/20 rounded-lg transition-all"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
+            {!isDataReady && user ? (
+              // Skeletal Loading for Folders
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="w-full flex items-center gap-3 p-3 rounded-xl animate-pulse">
+                  <div className="w-4 h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md" />
+                  <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-24" />
+                </div>
+              ))
+            ) : (
+              [...folders].sort((a, b) => {
+                if (a.isDefault) return -1;
+                if (b.isDefault) return 1;
+                
+                // Sort non-default folders by creation time (ascending)
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return aTime - bTime;
+              }).map(f => (
+                <div key={f.id} className="group relative">
+                  <div 
+                    onClick={() => { 
+                      setActiveFolderId(f.id); 
+                      setActiveSystemFolderId(null);
+                      setIsLibraryView(false);
+                      setFlashcardIndex(0);
+                      setViewMode('flashcards');
+                      if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
+                      activeFolderId === f.id && !isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                     )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <BookOpen size={16} />
+                      <span className="font-medium truncate max-w-[140px]">{f.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold opacity-60">
+                        {flashcards.filter(c => c.folderId === f.id).length + savedSentences.filter(s => s.folderId === f.id).length}
+                      </span>
+                      {!f.isDefault && (
+                        <div className="flex items-center">
+                          {folderToDelete === f.id ? (
+                            <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
+                                className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
+                              >
+                                Confirm
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setFolderToDelete(null); }}
+                                className="p-1 text-white/70 hover:text-white"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setFolderToDelete(f.id); }}
+                              className="p-3 md:p-1.5 hover:bg-white/20 rounded-lg transition-all"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -1375,89 +1387,102 @@ const SidebarContent = ({
             <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">Recent Analysis</h3>
           </div>
           <div className="space-y-2">
-            {/* Merge recentAnalyses and savedSentences, avoiding duplicates */}
-            {(() => {
-              const merged = [...recentAnalyses];
-              savedSentences.forEach(s => {
-                if (!merged.find(m => m.originalText === s.originalText)) {
-                  merged.push(s);
-                }
-              });
-              return merged.slice(0, 8).map((s, idx) => {
-                const isSaved = savedSentences.some(ss => ss.originalText === s.originalText);
-                const savedId = savedSentences.find(ss => ss.originalText === s.originalText)?.id;
-                
-                return (
-                  <div 
-                    key={savedId || `recent-${idx}`}
-                    className="p-3 rounded-xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-all group relative"
-                  >
-                    <div 
-                      className="flex items-start gap-2 pr-8"
-                      onClick={() => { 
-                        setAnalysis(s); 
-                        setViewMode('analysis'); 
-                        if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                      }}
-                    >
-                      <FileText size={12} className={cn("mt-0.5 transition-colors", isSaved ? "text-indigo-500" : "text-zinc-400 group-hover:text-indigo-500")} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-serif line-clamp-1 mb-1 dark:text-zinc-300">{s.originalText}</p>
-                        <p className="text-[10px] text-zinc-500 line-clamp-1">{s.translatedText}</p>
-                      </div>
-                    </div>
-                    {isSaved && savedId && (
-                      <div className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 flex items-center">
-                        {sentenceToDelete === savedId ? (
-                          <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg z-10">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteDoc(doc(db, 'sentences', savedId)).then(() => {
-                                  setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
-                                  toast.success("Sentence deleted");
-                                  setSentenceToDelete(null);
-                                });
-                              }}
-                              className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
-                            >
-                              Confirm
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setSentenceToDelete(null); }}
-                              className="p-1 text-white/70 hover:text-white"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setSentenceToDelete(savedId); }}
-                            className="p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
-                            title="Delete Sentence"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {!isSaved && (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
-                          toast.success("Removed from history");
-                        }}
-                        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
-                        title="Remove from History"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+            {!isDataReady && user ? (
+              // Skeletal Loading for Recent Analysis
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-3 rounded-xl border border-transparent animate-pulse flex items-start gap-2">
+                  <div className="w-3 h-3 bg-zinc-200 dark:bg-zinc-800 rounded-sm mt-0.5" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded-md w-full" />
+                    <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-md w-2/3" />
                   </div>
-                );
-              });
-            })()}
+                </div>
+              ))
+            ) : (
+              /* Merge recentAnalyses and savedSentences, avoiding duplicates */
+              (() => {
+                const merged = [...recentAnalyses];
+                savedSentences.forEach(s => {
+                  if (!merged.find(m => m.originalText === s.originalText)) {
+                    merged.push(s);
+                  }
+                });
+                return merged.slice(0, 8).map((s, idx) => {
+                  const isSaved = savedSentences.some(ss => ss.originalText === s.originalText);
+                  const savedId = savedSentences.find(ss => ss.originalText === s.originalText)?.id;
+                  
+                  return (
+                    <div 
+                      key={savedId || `recent-${idx}`}
+                      className="p-3 rounded-xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-all group relative"
+                    >
+                      <div 
+                        className="flex items-start gap-2 pr-8"
+                        onClick={() => { 
+                          setAnalysis(s); 
+                          setViewMode('analysis'); 
+                          if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                        }}
+                      >
+                        <FileText size={12} className={cn("mt-0.5 transition-colors", isSaved ? "text-indigo-500" : "text-zinc-400 group-hover:text-indigo-500")} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-serif line-clamp-1 mb-1 dark:text-zinc-300">{s.originalText}</p>
+                          <p className="text-[10px] text-zinc-500 line-clamp-1">{s.translatedText}</p>
+                        </div>
+                      </div>
+                      {isSaved && savedId && (
+                        <div className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 flex items-center">
+                          {sentenceToDelete === savedId ? (
+                            <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg z-10">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteDoc(doc(db, 'sentences', savedId)).then(() => {
+                                    setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
+                                    toast.success("Sentence deleted");
+                                    setSentenceToDelete(null);
+                                  });
+                                }}
+                                className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
+                              >
+                                Confirm
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setSentenceToDelete(null); }}
+                                className="p-1 text-white/70 hover:text-white"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setSentenceToDelete(savedId); }}
+                              className="p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
+                              title="Delete Sentence"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {!isSaved && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
+                            toast.success("Removed from history");
+                          }}
+                          className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
+                          title="Remove from History"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                });
+              })()
+            )}
           </div>
         </div>
       </div>
@@ -2597,6 +2622,22 @@ function App() {
       return;
     }
 
+    // 1. Check local recent analyses cache first
+    const normalizedInput = inputText.trim().toLowerCase();
+    const cachedAnalysis = recentAnalyses.find(a => a.originalText.toLowerCase() === normalizedInput);
+    
+    if (cachedAnalysis) {
+      setAnalysis(cachedAnalysis);
+      setViewMode('analysis');
+      
+      // Move to top of recent
+      setRecentAnalyses(prev => {
+        const filtered = prev.filter(a => a.originalText !== cachedAnalysis.originalText);
+        return [cachedAnalysis, ...filtered].slice(0, 10);
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysis(null);
     setViewMode('analysis');
@@ -2917,7 +2958,7 @@ return (
   <>
     <Toaster position="top-center" richColors />
     <AnimatePresence>
-      {!isDataReady && <LoadingScreen key="loading" />}
+      {!isAuthReady && <LoadingScreen key="loading" />}
     </AnimatePresence>
     <div className={cn("flex flex-col h-[100dvh] overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
       
@@ -2969,6 +3010,7 @@ return (
         >
           <SidebarContent 
             user={user}
+            isDataReady={isDataReady}
             folders={folders}
             activeFolderId={activeFolderId}
             setActiveFolderId={setActiveFolderId}
@@ -3027,6 +3069,7 @@ return (
                 </div>
                 <SidebarContent 
                   user={user}
+                  isDataReady={isDataReady}
                   folders={folders}
                   activeFolderId={activeFolderId}
                   setActiveFolderId={setActiveFolderId}
@@ -3467,12 +3510,21 @@ return (
                 <motion.div key="flashcards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-serif font-bold dark:text-white">
-                        {isLibraryView 
-                          ? systemFolders.find(f => f.id === activeSystemFolderId)?.name 
-                          : folders.find(f => f.id === activeFolderId)?.name}
-                      </h2>
-                      <p className="text-sm text-zinc-500">{activeFolderCards.length} cards in this folder</p>
+                      {!isDataReady ? (
+                        <div className="space-y-2">
+                          <div className="h-8 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-lg animate-pulse" />
+                          <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-lg animate-pulse" />
+                        </div>
+                      ) : (
+                        <>
+                          <h2 className="text-2xl font-serif font-bold dark:text-white">
+                            {isLibraryView 
+                              ? systemFolders.find(f => f.id === activeSystemFolderId)?.name 
+                              : folders.find(f => f.id === activeFolderId)?.name}
+                          </h2>
+                          <p className="text-sm text-zinc-500">{activeFolderCards.length} cards in this folder</p>
+                        </>
+                      )}
                     </div>
                     <div className="flex gap-3">
                       {!isLibraryView && (
@@ -3484,7 +3536,7 @@ return (
                       <div className="flex gap-2">
                         <button 
                           onClick={() => startTest('flashcard')}
-                          disabled={activeFolderCards.length === 0}
+                          disabled={activeFolderCards.length === 0 || !isDataReady}
                           className="py-2 px-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2"
                         >
                           <Zap size={16} />
@@ -3492,7 +3544,7 @@ return (
                         </button>
                         <button 
                           onClick={() => startTest('mcq')}
-                          disabled={activeFolderCards.length === 0}
+                          disabled={activeFolderCards.length === 0 || !isDataReady}
                           className="py-2 px-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-sm font-bold shadow-lg hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 flex items-center gap-2"
                         >
                           <Brain size={16} />
@@ -3503,7 +3555,9 @@ return (
                   </div>
 
                   <div className="h-[500px] max-w-xl mx-auto">
-                    {activeFolderCards.length > 0 ? (
+                    {!isDataReady ? (
+                      <div className="w-full h-full bg-zinc-200 dark:bg-zinc-800 rounded-3xl animate-pulse" />
+                    ) : activeFolderCards.length > 0 ? (
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={activeFolderCards[flashcardIndex].id}

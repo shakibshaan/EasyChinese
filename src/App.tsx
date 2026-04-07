@@ -40,6 +40,8 @@ import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, Contex
 import { cn, playAudio } from './lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Toaster, toast } from 'sonner';
+import { useTextSelection } from './hooks/useTextSelection';
+import { SelectionPopover } from './components/SelectionPopover';
 
 // --- Types ---
 interface SavedSentence extends SentenceAnalysis {
@@ -1693,6 +1695,9 @@ function App() {
     data: any,
     savedInFolders: string[]
   } | null>(null);
+
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const { selection, clearSelection } = useTextSelection(popoverRef);
 
   useEffect(() => {
     if (user && pendingAction) {
@@ -3804,6 +3809,20 @@ return (
         savedInFolders={itemToSave?.savedInFolders || []}
         isSaving={isSaving}
       />
+
+      {selection && (
+        <SelectionPopover
+          ref={popoverRef}
+          text={selection.text}
+          position={selection.position}
+          onClose={clearSelection}
+          onSave={(analysis) => {
+            setItemToSave({ type: 'sentence', data: analysis, savedInFolders: [] });
+            setIsFolderSelectOpen(true);
+            clearSelection();
+          }}
+        />
+      )}
 
       <style>{`
         .perspective-1000 { perspective: 1000px; }

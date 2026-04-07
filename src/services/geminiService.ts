@@ -17,8 +17,9 @@ export interface SentenceToken {
 
 export interface ContextExample {
   text: string;
-  pinyin: string;
+  pinyin?: string;
   translation: string;
+  tokens?: SentenceToken[];
 }
 
 export interface SentenceAnalysis {

@@ -40,8 +40,6 @@ import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, Contex
 import { cn, playAudio } from './lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Toaster, toast } from 'sonner';
-import { useTextSelection } from './hooks/useTextSelection';
-import { SelectionPopover } from './components/SelectionPopover';
 
 // --- Types ---
 interface SavedSentence extends SentenceAnalysis {
@@ -1696,8 +1694,39 @@ function App() {
     savedInFolders: string[]
   } | null>(null);
 
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const { selection, clearSelection } = useTextSelection(popoverRef);
+  // Handle deep linking for saving words from extension
+  useEffect(() => {
+    if (!isAuthReady) return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const saveWord = params.get('saveWord');
+    
+    if (saveWord) {
+      const pinyin = params.get('pinyin') || '';
+      const translation = params.get('translation') || '';
+      const pos = params.get('pos') || '';
+      
+      const wordObj = {
+        word: saveWord,
+        pinyin,
+        translation,
+        pos,
+        definition: translation,
+        context: ''
+      };
+      
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      setTimeout(() => {
+        if (!user) {
+          setIsAuthModalOpen(true);
+          setPendingAction(() => () => handleSaveWord(wordObj));
+        } else {
+          handleSaveWord(wordObj);
+        }
+      }, 100);
+    }
+  }, [isAuthReady, user]);
 
   useEffect(() => {
     if (user && pendingAction) {
@@ -3467,25 +3496,49 @@ return (
                                       <div key={idx} className="space-y-3 relative group/ex">
                                         <div className="flex justify-between items-start">
                                           <div className="flex flex-wrap gap-x-3 gap-y-2">
-                                            <div className="flex flex-col items-start">
-                                              <span className="text-xl md:text-2xl font-serif text-zinc-900 dark:text-white leading-none">{ex.text}</span>
-                                              <span className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tight mt-1">
-                                                {ex.pinyin}
-                                              </span>
-                                            </div>
-                                          </div>
-                                          <button 
-                                            onClick={() => handleSaveExample(ex)}
-                                            className={cn(
-                                              "p-2 rounded-xl transition-all",
-                                              isSaved 
-                                                ? "text-green-500 bg-green-50 dark:bg-green-900/20" 
-                                                : "text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                                            {ex.tokens ? (
+                                              ex.tokens.map((token, tIdx) => (
+                                                <div key={tIdx} className="flex flex-col items-center">
+                                                  <span className="text-xl md:text-2xl font-serif text-zinc-900 dark:text-white leading-none">{token.text}</span>
+                                                  {token.pinyin && (
+                                                    <span className="text-[10px] md:text-xs font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tight mt-1">
+                                                      {token.pinyin}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              ))
+                                            ) : (
+                                              <div className="flex flex-col items-start">
+                                                <span className="text-xl md:text-2xl font-serif text-zinc-900 dark:text-white leading-none">{ex.text}</span>
+                                                {ex.pinyin && (
+                                                  <span className="text-xs md:text-sm font-medium text-indigo-600 dark:text-indigo-400 font-sans lowercase tracking-tight mt-1">
+                                                    {ex.pinyin}
+                                                  </span>
+                                                )}
+                                              </div>
                                             )}
-                                            title={isSaved ? "Remove from Flashcards" : "Save to Flashcards"}
-                                          >
-                                            {isSaved ? <CheckCircle2 size={16} /> : <BookmarkPlus size={16} />}
-                                          </button>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <button 
+                                              onClick={() => playAudio(ex.text)}
+                                              className="p-2 rounded-xl transition-all text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                                              title="Listen to Example"
+                                            >
+                                              <Volume2 size={16} />
+                                            </button>
+                                            <button 
+                                              onClick={() => handleSaveExample(ex)}
+                                              className={cn(
+                                                "p-2 rounded-xl transition-all",
+                                                isSaved 
+                                                  ? "text-green-500 bg-green-50 dark:bg-green-900/20" 
+                                                  : "text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                                              )}
+                                              title={isSaved ? "Remove from Flashcards" : "Save to Flashcards"}
+                                            >
+                                              {isSaved ? <CheckCircle2 size={16} /> : <BookmarkPlus size={16} />}
+                                            </button>
+                                          </div>
                                         </div>
                                         <div className="space-y-1">
                                           <p className="text-xs md:text-sm text-zinc-500 dark:text-zinc-400 italic">
@@ -3809,20 +3862,6 @@ return (
         savedInFolders={itemToSave?.savedInFolders || []}
         isSaving={isSaving}
       />
-
-      {selection && (
-        <SelectionPopover
-          ref={popoverRef}
-          text={selection.text}
-          position={selection.position}
-          onClose={clearSelection}
-          onSave={(analysis) => {
-            setItemToSave({ type: 'sentence', data: analysis, savedInFolders: [] });
-            setIsFolderSelectOpen(true);
-            clearSelection();
-          }}
-        />
-      )}
 
       <style>{`
         .perspective-1000 { perspective: 1000px; }

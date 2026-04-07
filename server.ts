@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import cors from "cors";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,112 +12,121 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(cors());
   app.use(express.json());
 
-  // Gemini Embedding Endpoint
-  app.post("/api/embed", async (req, res) => {
-    try {
-      const { text } = req.body;
-      if (!text || typeof text !== 'string') {
-        return res.status(400).json({ success: false, error: "Text is required" });
-      }
+  // ==============================
+  // ✅ Create Gemini client ONCE
+  // ==============================
+  const apiKey = process.env.VITE_GEMINI_API_KEY;
 
-      const apiKey = process.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ success: false, error: "AI configuration error" });
-      }
+  if (!apiKey) {
+    console.error("VITE_GEMINI_API_KEY is missing");
+    process.exit(1);
+  }
 
-      const ai = new GoogleGenAI({ apiKey });
-      const result = await ai.models.embedContent({
-        model: 'gemini-embedding-2-preview',
-        contents: text,
-      });
+  const ai = new GoogleGenAI({ apiKey });
 
-      res.json({ success: true, embedding: result.embeddings?.[0]?.values || [] });
-    } catch (error) {
-      console.error("Gemini Embedding Error:", error);
-      res.status(500).json({ success: false, error: "Embedding failed" });
-    }
-  });
+  // ==============================
+  // SYSTEM PROMPT
+  // ==============================
+  const SYSTEM_PROMPT = `You are a Chinese language learning assistant. Analyze the sentence and return JSON:
 
-  // Gemini Proxy Endpoint
+{
+  "originalText": "string",
+  "translatedText": "string",
+  "pinyin": "string",
+  "educationalConfidenceScore": number,
+  "tokens": [{"text":"string","pinyin":"string"}],
+  "breakdown":[{"word":"string","pinyin":"string","translation":"string","pos":"string","definition":"string","context":"string"}],
+  "grammar":"string",
+  "contextUsage":"string",
+  "contextExamples":[{"text":"string","translation":"string","tokens":[{"text":"string","pinyin":"string"}]}]
+}
+
+Rules:
+1. English input → translate to Chinese.
+2. Tokens must match Chinese text exactly.
+3. Grammar/context concise.
+4. Generate exactly 2 examples.
+5. Confidence <85 if ambiguous.`;
+
+  // ==============================
+  // ANALYZE ENDPOINT (Gemini)
+  // ==============================
   app.post("/api/analyze", async (req, res) => {
     try {
       const { text } = req.body;
 
-      if (!text || typeof text !== 'string') {
-        return res.status(400).json({ success: false, error: "Text is required" });
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({
+          success: false,
+          error: "Text is required",
+        });
       }
 
       if (text.length > 200) {
-        return res.status(400).json({ success: false, error: "Text too long (max 200 chars)" });
+        return res.status(400).json({
+          success: false,
+          error: "Text too long (max 200 chars)",
+        });
       }
 
-      const apiKey = process.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        console.error("Backend: VITE_GEMINI_API_KEY is missing");
-        return res.status(500).json({ success: false, error: "AI configuration error" });
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
       const trimmedText = text.trim();
 
+      // ==============================
+      // ✅ Gemini Call
+      // ==============================
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-lite-preview",
-        contents: `Analyze: "${trimmedText}"`,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: trimmedText }],
+          },
+        ],
         config: {
-          systemInstruction: `You are a Chinese language learning assistant. Analyze the sentence and return JSON:
-{
-  "originalText": "string",
-  "translatedText": "string",
-  "pinyin": "string (full sentence)",
-  "breakdown": [{"word": "string", "pinyin": "string", "translation": "string", "pos": "string", "definition": "string"}],
-  "educationalConfidenceScore": number (0-100)
-}
-Rules:
-1. Focus only on accurate translation and individual word breakdown.
-2. Keep definitions extremely concise.`,
+          systemInstruction: SYSTEM_PROMPT,
           temperature: 0.1,
           responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              originalText: { type: "STRING" },
-              translatedText: { type: "STRING" },
-              pinyin: { type: "STRING" },
-              educationalConfidenceScore: { type: "INTEGER" },
-              breakdown: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    word: { type: "STRING" },
-                    pinyin: { type: "STRING" },
-                    translation: { type: "STRING" },
-                    pos: { type: "STRING" },
-                    definition: { type: "STRING" }
-                  },
-                  required: ["word", "translation", "definition"]
-                }
-              }
-            },
-            required: ["originalText", "translatedText", "pinyin", "breakdown", "educationalConfidenceScore"]
-          }
-        }
+          maxOutputTokens: 800,
+        },
       });
 
-      const resultText = response.text || "{}";
-      const cleanJson = resultText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
-      const data = JSON.parse(cleanJson);
+      const raw = response.text || "{}";
+      console.log("Raw Gemini response:", raw);
+
+      const cleanJson = raw
+        .replace(/^```json\n?/, "")
+        .replace(/\n?```$/, "")
+        .trim();
+
+      let data;
+      try {
+        data = JSON.parse(cleanJson);
+      } catch (err) {
+        console.error("Invalid JSON:", raw);
+        return res.status(500).json({
+          success: false,
+          error: "AI returned invalid JSON",
+        });
+      }
 
       res.json({ success: true, data });
-    } catch (error) {
-      console.error("Gemini Proxy Error:", error);
-      res.status(500).json({ success: false, error: "AI request failed" });
+    } catch (error: any) {
+      console.error("Gemini Error:", error);
+
+      res.status(500).json({
+        success: false,
+        error: "AI request failed",
+        details: error.message,
+      });
     }
   });
 
-  // Vite middleware for development
+  // ==============================
+  // VITE DEV / PROD
+  // ==============================
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -124,10 +134,10 @@ Rules:
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 

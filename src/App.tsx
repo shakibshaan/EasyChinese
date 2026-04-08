@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc, getDocFromServer, setDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc, getDocFromServer, setDoc, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, ContextExample } from './services/geminiService';
 import { cn, playAudio } from './lib/utils';
@@ -2613,10 +2613,11 @@ function App() {
 
   const handleAnalyze = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputText.trim() || isAnalyzing) return;
+    const trimmedInput = inputText.trim();
+    if (!trimmedInput || isAnalyzing) return;
     
     // Check word count to prevent spamming/huge requests
-    const wordCount = inputText.trim().split(/\s+/).length;
+    const wordCount = trimmedInput.split(/\s+/).length;
     if (wordCount > 20) {
       toast.error("Please limit your text to 20 words or less.");
       return;
@@ -2626,7 +2627,99 @@ function App() {
     setAnalysis(null);
     setViewMode('analysis');
     try {
-      const result = await analyzeSentence(inputText);
+      const lowerInput = trimmedInput.toLowerCase();
+      
+      // 0. Check local recent analyses first for instant response
+      const recentMatch = recentAnalyses.find(a => 
+        a.originalText.toLowerCase() === lowerInput || 
+        a.translatedText.toLowerCase() === lowerInput ||
+        (a as any).searchTerms?.includes(lowerInput)
+      );
+      
+      if (recentMatch) {
+        setAnalysis(recentMatch);
+        setIsAnalyzing(false);
+        return;
+      }
+
+      let cacheHit = false;
+
+      const fetchFromCache = async (): Promise<SentenceAnalysis> => {
+        const cacheRef = collection(db, 'global_sentence_cache');
+        
+        // 1. Try searchTerms (new format)
+        let q = query(cacheRef, where('searchTerms', 'array-contains', lowerInput), limit(1));
+        let querySnapshot = await getDocs(q);
+        
+        // 2. Try originalText (old format fallback)
+        if (querySnapshot.empty) {
+          q = query(cacheRef, where('originalText', '==', trimmedInput), limit(1));
+          querySnapshot = await getDocs(q);
+        }
+        
+        // 3. Try translatedText exact match (old format fallback)
+        if (querySnapshot.empty) {
+          q = query(cacheRef, where('translatedText', '==', trimmedInput), limit(1));
+          querySnapshot = await getDocs(q);
+        }
+        
+        // 4. Try translatedText Title Case (old format fallback for English words)
+        if (querySnapshot.empty) {
+          const titleCase = trimmedInput.charAt(0).toUpperCase() + trimmedInput.slice(1).toLowerCase();
+          q = query(cacheRef, where('translatedText', '==', titleCase), limit(1));
+          querySnapshot = await getDocs(q);
+        }
+        
+        if (!querySnapshot.empty) {
+          cacheHit = true;
+          const docData = querySnapshot.docs[0].data();
+          return {
+            originalText: docData.originalText,
+            translatedText: docData.translatedText,
+            pinyin: docData.pinyin,
+            educationalConfidenceScore: docData.educationalConfidenceScore,
+            tokens: docData.tokens,
+            breakdown: docData.breakdown,
+            grammar: docData.grammar,
+            contextUsage: docData.contextUsage,
+            contextExamples: docData.contextExamples
+          } as SentenceAnalysis;
+        }
+        throw new Error("Cache miss");
+      };
+
+      const fetchFromApi = async (): Promise<SentenceAnalysis> => {
+        const apiResult = await analyzeSentence(trimmedInput);
+        
+        // Save to global cache if we didn't already hit the cache
+        if (!cacheHit) {
+          try {
+            // Firestore does not support undefined values anywhere in the object tree.
+            // JSON.parse(JSON.stringify()) deeply removes all undefined properties.
+            const sanitizedResult = JSON.parse(JSON.stringify(apiResult));
+            
+            const searchTerms = Array.from(new Set([
+              trimmedInput.toLowerCase(),
+              apiResult.originalText.toLowerCase(),
+              apiResult.translatedText.toLowerCase()
+            ]));
+
+            const cacheData = { 
+              ...sanitizedResult, 
+              searchTerms,
+              createdAt: serverTimestamp() 
+            };
+            
+            await addDoc(collection(db, 'global_sentence_cache'), cacheData);
+          } catch (cacheError) {
+            console.error("Failed to save to global cache:", cacheError);
+          }
+        }
+        return apiResult;
+      };
+
+      const result = await Promise.any([fetchFromCache(), fetchFromApi()]);
+
       setAnalysis(result);
       
       // Add to recent analyses if not already there

@@ -184,6 +184,10 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 // --- Components ---
 
+const Skeleton = ({ className }: { className?: string }) => (
+  <div className={cn("animate-pulse bg-zinc-200 dark:bg-zinc-800 rounded-lg", className)} />
+);
+
 const ThemeToggle = ({ theme, toggle }: { theme: 'dark' | 'light', toggle: () => void }) => (
   <button 
     onClick={toggle}
@@ -1163,6 +1167,11 @@ interface SidebarProps {
   savedSentences: SavedSentence[];
   setAnalysis: (analysis: SentenceAnalysis) => void;
   onOpenAuthModal: () => void;
+  dataLoaded: {
+    sentences: boolean;
+    folders: boolean;
+    flashcards: boolean;
+  };
 }
 
 const SidebarContent = ({
@@ -1195,7 +1204,8 @@ const SidebarContent = ({
   setRecentAnalyses,
   savedSentences,
   setAnalysis,
-  onOpenAuthModal
+  onOpenAuthModal,
+  dataLoaded
 }: SidebarProps) => (
   <>
     <Auth user={user} onOpenAuthModal={onOpenAuthModal} />
@@ -1217,63 +1227,67 @@ const SidebarContent = ({
             )}
           </div>
           <div className="space-y-1">
-            {systemFolders.filter(f => !f.parentId).map(f => {
-              const hasChildren = systemFolders.some(sf => sf.parentId === f.id);
-              return (
-                <div key={f.id} className="group relative">
-                  <div 
-                    onClick={() => { 
-                      setActiveSystemFolderId(f.id);
-                      setActiveFolderId(null);
-                      setIsLibraryView(true);
-                      setFlashcardIndex(0);
-                      setViewMode('flashcards');
-                      if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
-                      activeSystemFolderId === f.id && isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Trophy size={16} />
-                      <span className="font-medium truncate max-w-[140px]">{f.name}</span>
+            {systemFolders.length === 0 ? (
+              [1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full mb-1" />)
+            ) : (
+              systemFolders.filter(f => !f.parentId).map(f => {
+                const hasChildren = systemFolders.some(sf => sf.parentId === f.id);
+                return (
+                  <div key={f.id} className="group relative">
+                    <div 
+                      onClick={() => { 
+                        setActiveSystemFolderId(f.id);
+                        setActiveFolderId(null);
+                        setIsLibraryView(true);
+                        setFlashcardIndex(0);
+                        setViewMode('flashcards');
+                        if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
+                        activeSystemFolderId === f.id && isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Trophy size={16} />
+                        <span className="font-medium truncate max-w-[140px]">{f.name}</span>
+                      </div>
+                      {hasChildren && (
+                        <ChevronRight 
+                          size={14} 
+                          className={cn("transition-transform", activeSystemFolderId === f.id ? "rotate-90" : "")} 
+                        />
+                      )}
                     </div>
-                    {hasChildren && (
-                      <ChevronRight 
-                        size={14} 
-                        className={cn("transition-transform", activeSystemFolderId === f.id ? "rotate-90" : "")} 
-                      />
+                    {/* Subfolders */}
+                    {activeSystemFolderId === f.id && hasChildren && (
+                      <div className="ml-4 mt-1 space-y-1 border-l border-zinc-200 dark:border-zinc-800 pl-2">
+                        {systemFolders.filter(sf => sf.parentId === f.id).map(sf => (
+                          <div 
+                            key={sf.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveSystemFolderId(sf.id);
+                              setActiveFolderId(null);
+                              setIsLibraryView(true);
+                              setFlashcardIndex(0);
+                              setViewMode('flashcards');
+                              if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between p-2 rounded-lg transition-all text-xs cursor-pointer",
+                              activeSystemFolderId === sf.id && isLibraryView ? "bg-zinc-900/10 dark:bg-zinc-100/10 text-zinc-900 dark:text-zinc-100 font-bold" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-500 dark:text-zinc-500"
+                            )}
+                          >
+                            <span className="truncate">{sf.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {/* Subfolders */}
-                  {activeSystemFolderId === f.id && hasChildren && (
-                    <div className="ml-4 mt-1 space-y-1 border-l border-zinc-200 dark:border-zinc-800 pl-2">
-                      {systemFolders.filter(sf => sf.parentId === f.id).map(sf => (
-                        <div 
-                          key={sf.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveSystemFolderId(sf.id);
-                            setActiveFolderId(null);
-                            setIsLibraryView(true);
-                            setFlashcardIndex(0);
-                            setViewMode('flashcards');
-                            if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between p-2 rounded-lg transition-all text-xs cursor-pointer",
-                            activeSystemFolderId === sf.id && isLibraryView ? "bg-zinc-900/10 dark:bg-zinc-100/10 text-zinc-900 dark:text-zinc-100 font-bold" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-500 dark:text-zinc-500"
-                          )}
-                        >
-                          <span className="truncate">{sf.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -1303,161 +1317,169 @@ const SidebarContent = ({
           )}
           
           <div className="space-y-1">
-            {[...folders].sort((a, b) => {
-              if (a.isDefault) return -1;
-              if (b.isDefault) return 1;
-              
-              // Sort non-default folders by creation time (ascending)
-              const aTime = a.createdAt?.toMillis?.() || 0;
-              const bTime = b.createdAt?.toMillis?.() || 0;
-              return aTime - bTime;
-            }).map(f => (
-              <div key={f.id} className="group relative">
-                <div 
-                  onClick={() => { 
-                    setActiveFolderId(f.id); 
-                    setActiveSystemFolderId(null);
-                    setIsLibraryView(false);
-                    setFlashcardIndex(0);
-                    setViewMode('flashcards');
-                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
-                    activeFolderId === f.id && !isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <BookOpen size={16} />
-                    <span className="font-medium truncate max-w-[140px]">{f.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold opacity-60">
-                      {flashcards.filter(c => c.folderId === f.id).length + savedSentences.filter(s => s.folderId === f.id).length}
-                    </span>
-                    {!f.isDefault && (
-                      <div className="flex items-center">
-                        {folderToDelete === f.id ? (
-                          <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
-                              className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
-                            >
-                              Confirm
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setFolderToDelete(null); }}
-                              className="p-1 text-white/70 hover:text-white"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setFolderToDelete(f.id); }}
-                            className="p-3 md:p-1.5 hover:bg-white/20 rounded-lg transition-all"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
+            {user && !dataLoaded.folders ? (
+              [1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-full mb-1" />)
+            ) : (
+              [...folders].sort((a, b) => {
+                if (a.isDefault) return -1;
+                if (b.isDefault) return 1;
+                
+                // Sort non-default folders by creation time (ascending)
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return aTime - bTime;
+              }).map(f => (
+                <div key={f.id} className="group relative">
+                  <div 
+                    onClick={() => { 
+                      setActiveFolderId(f.id); 
+                      setActiveSystemFolderId(null);
+                      setIsLibraryView(false);
+                      setFlashcardIndex(0);
+                      setViewMode('flashcards');
+                      if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm cursor-pointer",
+                      activeFolderId === f.id && !isLibraryView ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-lg shadow-black/10 dark:shadow-white/10" : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                     )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <BookOpen size={16} />
+                      <span className="font-medium truncate max-w-[140px]">{f.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold opacity-60">
+                        {flashcards.filter(c => c.folderId === f.id).length + savedSentences.filter(s => s.folderId === f.id).length}
+                      </span>
+                      {!f.isDefault && (
+                        <div className="flex items-center">
+                          {folderToDelete === f.id ? (
+                            <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
+                                className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
+                              >
+                                Confirm
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setFolderToDelete(null); }}
+                                className="p-1 text-white/70 hover:text-white"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setFolderToDelete(f.id); }}
+                              className="p-3 md:p-1.5 hover:bg-white/20 rounded-lg transition-all"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
-        {/* Library Section */}
+        {/* Recent Section */}
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">Recent Analysis</h3>
           </div>
           <div className="space-y-2">
-            {/* Merge recentAnalyses and savedSentences, avoiding duplicates */}
-            {(() => {
-              const merged = [...recentAnalyses];
-              savedSentences.forEach(s => {
-                if (!merged.find(m => m.originalText === s.originalText)) {
-                  merged.push(s);
-                }
-              });
-              return merged.slice(0, 8).map((s, idx) => {
-                const isSaved = savedSentences.some(ss => ss.originalText === s.originalText);
-                const savedId = savedSentences.find(ss => ss.originalText === s.originalText)?.id;
-                
-                return (
-                  <div 
-                    key={savedId || `recent-${idx}`}
-                    className="p-3 rounded-xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-all group relative"
-                  >
+            {user && !dataLoaded.sentences ? (
+              [1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full mb-1" />)
+            ) : (
+              /* Merge recentAnalyses and savedSentences, avoiding duplicates */
+              (() => {
+                const merged = [...recentAnalyses];
+                savedSentences.forEach(s => {
+                  if (!merged.find(m => m.originalText === s.originalText)) {
+                    merged.push(s);
+                  }
+                });
+                return merged.slice(0, 8).map((s, idx) => {
+                  const isSaved = savedSentences.some(ss => ss.originalText === s.originalText);
+                  const savedId = savedSentences.find(ss => ss.originalText === s.originalText)?.id;
+                  
+                  return (
                     <div 
-                      className="flex items-start gap-2 pr-8"
-                      onClick={() => { 
-                        setAnalysis(s); 
-                        setViewMode('analysis'); 
-                        if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                      }}
+                      key={savedId || `recent-${idx}`}
+                      className="p-3 rounded-xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-all group relative"
                     >
-                      <FileText size={12} className={cn("mt-0.5 transition-colors", isSaved ? "text-indigo-500" : "text-zinc-400 group-hover:text-indigo-500")} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-serif line-clamp-1 mb-1 dark:text-zinc-300">{s.originalText}</p>
-                        <p className="text-[10px] text-zinc-500 line-clamp-1">{s.translatedText}</p>
-                      </div>
-                    </div>
-                    {isSaved && savedId && (
-                      <div className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 flex items-center">
-                        {sentenceToDelete === savedId ? (
-                          <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg z-10">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteDoc(doc(db, 'sentences', savedId)).then(() => {
-                                  setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
-                                  toast.success("Sentence deleted");
-                                  setSentenceToDelete(null);
-                                });
-                              }}
-                              className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
-                            >
-                              Confirm
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setSentenceToDelete(null); }}
-                              className="p-1 text-white/70 hover:text-white"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setSentenceToDelete(savedId); }}
-                            className="p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
-                            title="Delete Sentence"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {!isSaved && (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
-                          toast.success("Removed from history");
+                      <div 
+                        className="flex items-start gap-2 pr-8"
+                        onClick={() => { 
+                          setAnalysis(s); 
+                          setViewMode('analysis'); 
+                          if (window.innerWidth < 1024) setIsSidebarOpen(false);
                         }}
-                        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
-                        title="Remove from History"
                       >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                );
-              });
-            })()}
+                        <FileText size={12} className={cn("mt-0.5 transition-colors", isSaved ? "text-indigo-500" : "text-zinc-400 group-hover:text-indigo-500")} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-serif line-clamp-1 mb-1 dark:text-zinc-300">{s.originalText}</p>
+                          <p className="text-[10px] text-zinc-500 line-clamp-1">{s.translatedText}</p>
+                        </div>
+                      </div>
+                      {isSaved && savedId && (
+                        <div className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 flex items-center">
+                          {sentenceToDelete === savedId ? (
+                            <div className="flex items-center gap-1 bg-red-500 rounded-lg p-1 shadow-lg z-10">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteDoc(doc(db, 'sentences', savedId)).then(() => {
+                                    setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
+                                    toast.success("Sentence deleted");
+                                    setSentenceToDelete(null);
+                                  });
+                                }}
+                                className="text-[10px] md:text-xs font-bold text-white px-2 py-1 hover:underline"
+                              >
+                                Confirm
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setSentenceToDelete(null); }}
+                                className="p-1 text-white/70 hover:text-white"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setSentenceToDelete(savedId); }}
+                              className="p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
+                              title="Delete Sentence"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {!isSaved && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRecentAnalyses(prev => prev.filter(a => a.originalText !== s.originalText));
+                            toast.success("Removed from history");
+                          }}
+                          className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-3 md:p-1.5 text-zinc-400 hover:text-red-500 transition-all"
+                          title="Remove from History"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                });
+              })()
+            )}
           </div>
         </div>
       </div>
@@ -1468,14 +1490,16 @@ const SidebarContent = ({
 const LoadingScreen = () => (
   <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center z-[100]">
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
       className="flex flex-col items-center"
     >
       <div className="relative mb-8">
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
           className="w-16 h-16 border-4 border-rose-500/20 border-t-rose-500 rounded-full"
         />
         <div className="absolute inset-0 flex items-center justify-center">
@@ -1483,7 +1507,7 @@ const LoadingScreen = () => (
         </div>
       </div>
       <h2 className="text-2xl font-serif font-bold text-white mb-2">EasyChinese</h2>
-      <p className="text-zinc-400 font-mono text-xs uppercase tracking-widest animate-pulse">Initializing Experience...</p>
+      <p className="text-zinc-400 font-mono text-[10px] uppercase tracking-[0.3em] animate-pulse">Initializing</p>
     </motion.div>
   </div>
 );
@@ -1644,7 +1668,6 @@ function App() {
   const [pinyinMode, setPinyinMode] = useState(false);
   const [testPile, setTestPile] = useState<FlashcardData[]>([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isDataReady, setIsDataReady] = useState(false);
   const [dataLoaded, setDataLoaded] = useState({
     sentences: false,
     folders: false,
@@ -1702,9 +1725,9 @@ function App() {
       setUser(u);
       setIsAuthReady(true);
       if (!u) {
-        setIsDataReady(true);
+        // No user, so we're ready
       } else {
-        setIsDataReady(false);
+        // User exists, wait for data
       }
     });
     return unsubscribe;
@@ -1713,10 +1736,12 @@ function App() {
   useEffect(() => {
     if (isAuthReady && user) {
       if (dataLoaded.sentences && dataLoaded.folders && dataLoaded.flashcards) {
-        setIsDataReady(true);
+        // Data loaded
       }
     }
   }, [isAuthReady, user, dataLoaded]);
+
+  const isDataReady = isAuthReady && (!user || (dataLoaded.sentences && dataLoaded.folders && dataLoaded.flashcards));
 
   // Test connection
   useEffect(() => {
@@ -2917,7 +2942,7 @@ return (
   <>
     <Toaster position="top-center" richColors />
     <AnimatePresence>
-      {!isDataReady && <LoadingScreen key="loading" />}
+      {!isAuthReady && <LoadingScreen key="loading" />}
     </AnimatePresence>
     <div className={cn("flex flex-col h-[100dvh] overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-zinc-950 text-zinc-100 dark" : "bg-zinc-50 text-zinc-900")}>
       
@@ -2998,6 +3023,7 @@ return (
             savedSentences={savedSentences}
             setAnalysis={setAnalysis}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            dataLoaded={dataLoaded}
           />
         </motion.aside>
 
@@ -3056,6 +3082,7 @@ return (
                   savedSentences={savedSentences}
                   setAnalysis={setAnalysis}
                   onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                  dataLoaded={dataLoaded}
                 />
               </motion.aside>
             </>
@@ -3211,29 +3238,29 @@ return (
                           {loadingMessages[loadingMessageIndex]}
                         </p>
                       </div>
-                      <div className="space-y-6 md:space-y-10 animate-pulse opacity-50">
+                      <div className="space-y-6 md:space-y-10">
                         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm">
-                        <div className="h-4 w-24 bg-zinc-100 dark:bg-zinc-800 rounded mb-4 md:mb-6" />
-                        <div className="space-y-3 md:space-y-4">
-                          <div className="h-8 md:h-12 w-3/4 bg-zinc-100 dark:bg-zinc-800 rounded-lg md:rounded-xl" />
-                          <div className="h-6 md:h-8 w-1/2 bg-zinc-100 dark:bg-zinc-800 rounded-lg md:rounded-xl" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                        <div className="space-y-3 md:space-y-4">
-                          <div className="h-4 w-32 bg-zinc-100 dark:bg-zinc-800 rounded" />
-                          <div className="space-y-2">
-                            {[1, 2, 3].map(i => (
-                              <div key={i} className="h-16 md:h-20 bg-zinc-100 dark:bg-zinc-800 rounded-xl md:rounded-2xl" />
-                            ))}
+                          <Skeleton className="h-4 w-24 mb-4 md:mb-6" />
+                          <div className="space-y-3 md:space-y-4">
+                            <Skeleton className="h-8 md:h-12 w-3/4" />
+                            <Skeleton className="h-6 md:h-8 w-1/2" />
                           </div>
                         </div>
-                        <div className="space-y-3 md:space-y-4">
-                          <div className="h-4 w-32 bg-zinc-100 dark:bg-zinc-800 rounded" />
-                          <div className="h-32 md:h-40 bg-zinc-100 dark:bg-zinc-800 rounded-2xl md:rounded-3xl" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                          <div className="space-y-3 md:space-y-4">
+                            <Skeleton className="h-4 w-32" />
+                            <div className="space-y-2">
+                              {[1, 2, 3].map(i => (
+                                <Skeleton key={i} className="h-16 md:h-20 w-full" />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="space-y-3 md:space-y-4">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-32 md:h-40 w-full" />
+                          </div>
                         </div>
                       </div>
-                    </div>
                     </div>
                   )}
 
@@ -3503,7 +3530,15 @@ return (
                   </div>
 
                   <div className="h-[500px] max-w-xl mx-auto">
-                    {activeFolderCards.length > 0 ? (
+                    {user && !dataLoaded.flashcards ? (
+                      <div className="h-full flex flex-col gap-6">
+                        <Skeleton className="h-1/2 w-full" />
+                        <div className="space-y-4">
+                          <Skeleton className="h-12 w-3/4 mx-auto" />
+                          <Skeleton className="h-8 w-1/2 mx-auto" />
+                        </div>
+                      </div>
+                    ) : activeFolderCards.length > 0 ? (
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={activeFolderCards[flashcardIndex].id}

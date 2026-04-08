@@ -18,14 +18,13 @@ async function startServer() {
   // ==============================
   // ✅ Create Gemini client ONCE
   // ==============================
-  const apiKey = process.env.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
   if (!apiKey) {
-    console.error("VITE_GEMINI_API_KEY is missing");
-    process.exit(1);
+    console.warn("GEMINI_API_KEY is missing. API calls will fail.");
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: apiKey || "dummy-key" });
 
   // ==============================
   // SYSTEM PROMPT

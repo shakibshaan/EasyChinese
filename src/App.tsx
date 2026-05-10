@@ -30,7 +30,8 @@ import {
   Settings,
   Info,
   Sun,
-  Moon
+  Moon,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
@@ -40,6 +41,8 @@ import { analyzeSentence, SentenceAnalysis, WordBreakdown, SentenceToken, Contex
 import { cn, playAudio } from './lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Toaster, toast } from 'sonner';
+
+import Scenarios from './components/Scenarios';
 
 // --- Types ---
 interface SavedSentence extends SentenceAnalysis {
@@ -744,7 +747,7 @@ const Auth = ({ user, onOpenAuthModal }: { user: User | null, onOpenAuthModal: (
   );
 };
 
-const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true, size: 'sm' | 'lg' | 'mcq' = 'lg', isLibrary: boolean = false) => {
+export const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: string, showPinyin: boolean = true, showChinese: boolean = true, size: 'sm' | 'lg' | 'mcq' | 'scenario' = 'lg', isLibrary: boolean = false) => {
   const textLength = text.length;
   const isLong = textLength > 15;
   const isVeryLong = textLength > 30;
@@ -784,7 +787,9 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                 ? (showPinyin
                     ? (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl")
                     : (isVeryLong ? "text-2xl md:text-3xl" : isLong ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"))
-                : "text-2xl"
+                : size === 'scenario'
+                  ? (isVeryLong ? "text-lg md:text-xl" : textLength > 14 ? "text-xl md:text-2xl" : "text-xl md:text-2xl")
+                  : (isVeryLong ? "text-base md:text-lg" : isLong ? "text-lg md:text-xl" : "text-xl md:text-2xl")
           )}>
             {text}
           </span>
@@ -800,7 +805,9 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                 ? (actualShowChinese
                     ? (isVeryLong ? "text-[10px] md:text-xs mt-0.5" : isLong ? "text-xs md:text-sm mt-0.5" : "text-sm md:text-base mt-1")
                     : (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl"))
-                : "text-base mt-1"
+                : size === 'scenario'
+                  ? (isVeryLong ? "text-xs mt-0.5" : textLength > 14 ? "text-sm mt-1" : "text-sm mt-1")
+                  : (isVeryLong ? "text-[10px] mt-0.5" : isLong ? "text-xs mt-0.5" : "text-sm mt-1")
           )}>
             {pinyin}
           </span>
@@ -831,7 +838,9 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                     ? (showPinyin && !isPunctuation
                         ? (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl")
                         : (isVeryLong ? "text-2xl md:text-3xl" : isLong ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"))
-                    : "text-2xl"
+                    : size === 'scenario'
+                      ? (isVeryLong ? "text-lg md:text-xl" : textLength > 14 ? "text-xl md:text-2xl" : "text-xl md:text-2xl")
+                      : (isVeryLong ? "text-base md:text-lg" : isLong ? "text-lg md:text-xl" : "text-xl md:text-2xl")
               )}>
                 {token.text}
               </span>
@@ -847,7 +856,9 @@ const renderTokenizedText = (text: string, tokens?: SentenceToken[], pinyin?: st
                     ? (tokenShowChinese
                         ? (isVeryLong ? "text-[10px] md:text-xs mt-0.5" : isLong ? "text-xs md:text-sm mt-0.5" : "text-sm md:text-base mt-1")
                         : (isVeryLong ? "text-xl md:text-2xl" : isLong ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl"))
-                    : "text-base mt-1"
+                    : size === 'scenario'
+                      ? (isVeryLong ? "text-xs mt-0.5" : textLength > 14 ? "text-sm mt-1" : "text-sm mt-1")
+                      : (isVeryLong ? "text-[10px] mt-0.5" : isLong ? "text-xs mt-0.5" : "text-sm mt-1")
               )}>
                 {token.pinyin}
               </span>
@@ -1150,7 +1161,7 @@ interface SidebarProps {
   isBootstrapping: boolean;
   flashcards: FlashcardData[];
   setFlashcardIndex: (index: number) => void;
-  setViewMode: (mode: 'analysis' | 'flashcards' | 'test' | 'results') => void;
+  setViewMode: (mode: 'analysis' | 'flashcards' | 'test' | 'results' | 'scenarios') => void;
   setIsSidebarOpen: (open: boolean) => void;
   isAddingFolder: boolean;
   setIsAddingFolder: (adding: boolean) => void;
@@ -1291,7 +1302,23 @@ const SidebarContent = ({
           </div>
         </div>
 
-        {/* Folders Section */}
+      <div className="px-4 mt-2">
+        <button
+          onClick={() => {
+            setViewMode('scenarios');
+            setIsSidebarOpen(false);
+          }}
+          className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 border border-blue-500/20 rounded-2xl text-blue-600 dark:text-blue-400 font-bold transition-all shadow-sm"
+        >
+          <div className="p-2 bg-blue-500 text-white rounded-xl shadow-md shadow-blue-500/20">
+            <Sparkles size={18} />
+          </div>
+          Scenarios
+          <span className="ml-auto text-[10px] uppercase font-bold py-1 px-2 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">New</span>
+        </button>
+      </div>
+
+      {/* Folders Section */}
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 font-bold">My Folders</h3>
@@ -1662,7 +1689,7 @@ function App() {
   const [isLibraryView, setIsLibraryView] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'analysis' | 'flashcards' | 'test' | 'results'>('analysis');
+  const [viewMode, setViewMode] = useState<'analysis' | 'flashcards' | 'test' | 'results' | 'scenarios'>('analysis');
   const [testMode, setTestMode] = useState<'flashcard' | 'mcq'>('flashcard');
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [pinyinMode, setPinyinMode] = useState(false);
@@ -2718,7 +2745,16 @@ function App() {
         return apiResult;
       };
 
-      const result = await Promise.any([fetchFromCache(), fetchFromApi()]);
+      let result: SentenceAnalysis;
+      try {
+        result = await Promise.any([fetchFromCache(), fetchFromApi()]);
+      } catch (error: any) {
+        if (error instanceof AggregateError) {
+          const apiError = error.errors.find((e: any) => e.message !== "Cache miss");
+          throw apiError || new Error("Analysis failed");
+        }
+        throw error;
+      }
 
       setAnalysis(result);
       
@@ -2727,9 +2763,15 @@ function App() {
         const filtered = prev.filter(a => a.originalText !== result.originalText);
         return [result, ...filtered].slice(0, 10);
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis failed:", error);
-      toast.error("Analysis failed. Please try again.");
+      const errorMessage = error?.message || "Analysis failed. Please try again.";
+      
+      if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("UNAVAILABLE")) {
+        toast.error("The AI model is currently experiencing high demand. Please try again in a few moments.");
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -3733,6 +3775,19 @@ return (
                       </div>
                     </div>
                   )}
+                </motion.div>
+              ) : viewMode === 'scenarios' ? (
+                <motion.div key="scenarios" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full overflow-y-auto w-full pb-24 scrollbar-hide">
+                  <Scenarios 
+                    savedSentences={savedSentences}
+                    flashcards={flashcards}
+                    handleSaveWord={handleSaveWord}
+                    setItemToSave={setItemToSave}
+                    setIsFolderSelectOpen={setIsFolderSelectOpen}
+                    user={user}
+                    setIsAuthModalOpen={setIsAuthModalOpen}
+                    renderTokenizedText={renderTokenizedText}
+                  />
                 </motion.div>
               ) : viewMode === 'results' ? (
                 <motion.div key="results" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-xl mx-auto text-center space-y-8 py-12">

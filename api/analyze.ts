@@ -30,73 +30,144 @@ export default async function handler(req: any, res: any) {
     const ai = new GoogleGenAI({ apiKey });
     const trimmedText = text.trim();
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: `Analyze for a language learner (ZH ↔ EN). 
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite-preview",
+        contents: `Analyze for a language learner (ZH ↔ EN). 
     1. If EN, translate to ZH + Pinyin.
     2. If ZH, provide Pinyin.
     3. Word-by-word breakdown.
     4. Grammar: Output ONLY the main grammar structure in one line, followed by a one-line brief explanation. Max 2 lines total.
-    5. Context: 1) A brief sentence on usage in China. 2) Provide exactly two short example sentences.
+    5. Context: 1) A brief sentence on usage in China. 2) You MUST provide EXACTLY TWO (2) short example sentences here.
     6. "tokens" array for ZH sentence (text & pinyin). Include punctuation (no pinyin).
     7. In grammar/contextUsage, always add Pinyin in () after ZH chars.
     8. Be extremely concise. Minimize characters while remaining helpful.
     
     Sentence: "${trimmedText}"`,
-      config: {
-        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            originalText: { type: Type.STRING },
-            translatedText: { type: Type.STRING },
-            pinyin: { type: Type.STRING, description: "The Pinyin for the Chinese text (either the original or the translation)." },
-            tokens: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  text: { type: Type.STRING },
-                  pinyin: { type: Type.STRING }
-                },
-                required: ["text"]
+        config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              originalText: { type: Type.STRING },
+              translatedText: { type: Type.STRING },
+              pinyin: { type: Type.STRING, description: "The Pinyin for the Chinese text (either the original or the translation)." },
+              tokens: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING },
+                    pinyin: { type: Type.STRING }
+                  },
+                  required: ["text"]
+                }
+              },
+              breakdown: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    word: { type: Type.STRING },
+                    pinyin: { type: Type.STRING },
+                    translation: { type: Type.STRING },
+                    pos: { type: Type.STRING },
+                    definition: { type: Type.STRING },
+                    context: { type: Type.STRING }
+                  },
+                  required: ["word", "translation", "definition"]
+                }
+              },
+              grammar: { type: Type.STRING, description: "One line for structure, one line for brief explanation. Max 2 lines total." },
+              contextUsage: { type: Type.STRING, description: "Brief usage in China. Be very concise." },
+              contextExamples: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING },
+                    pinyin: { type: Type.STRING },
+                    translation: { type: Type.STRING }
+                  },
+                  required: ["text", "pinyin", "translation"]
+                }
               }
             },
-            breakdown: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  word: { type: Type.STRING },
-                  pinyin: { type: Type.STRING },
-                  translation: { type: Type.STRING },
-                  pos: { type: Type.STRING },
-                  definition: { type: Type.STRING },
-                  context: { type: Type.STRING }
-                },
-                required: ["word", "translation", "definition"]
-              }
-            },
-            grammar: { type: Type.STRING, description: "One line for structure, one line for brief explanation. Max 2 lines total." },
-            contextUsage: { type: Type.STRING, description: "Brief usage in China. Be very concise." },
-            contextExamples: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  text: { type: Type.STRING },
-                  pinyin: { type: Type.STRING },
-                  translation: { type: Type.STRING }
-                },
-                required: ["text", "pinyin", "translation"]
-              }
-            }
-          },
-          required: ["originalText", "translatedText", "breakdown", "grammar", "contextUsage", "contextExamples"]
+            required: ["originalText", "translatedText", "breakdown", "grammar", "contextUsage", "contextExamples"]
+          }
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.warn("Primary model (gemini-3.1-flash-lite-preview) failed, falling back to gemini-2.0-flash:", error);
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: `Analyze for a language learner (ZH ↔ EN). 
+    1. If EN, translate to ZH + Pinyin.
+    2. If ZH, provide Pinyin.
+    3. Word-by-word breakdown.
+    4. Grammar: Output ONLY the main grammar structure in one line, followed by a one-line brief explanation. Max 2 lines total.
+    5. Context: 1) A brief sentence on usage in China. 2) You MUST provide EXACTLY TWO (2) short example sentences here.
+    6. "tokens" array for ZH sentence (text & pinyin). Include punctuation (no pinyin).
+    7. In grammar/contextUsage, always add Pinyin in () after ZH chars.
+    8. Be extremely concise. Minimize characters while remaining helpful.
+    
+    Sentence: "${trimmedText}"`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              originalText: { type: Type.STRING },
+              translatedText: { type: Type.STRING },
+              pinyin: { type: Type.STRING, description: "The Pinyin for the Chinese text (either the original or the translation)." },
+              tokens: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING },
+                    pinyin: { type: Type.STRING }
+                  },
+                  required: ["text"]
+                }
+              },
+              breakdown: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    word: { type: Type.STRING },
+                    pinyin: { type: Type.STRING },
+                    translation: { type: Type.STRING },
+                    pos: { type: Type.STRING },
+                    definition: { type: Type.STRING },
+                    context: { type: Type.STRING }
+                  },
+                  required: ["word", "translation", "definition"]
+                }
+              },
+              grammar: { type: Type.STRING, description: "One line for structure, one line for brief explanation. Max 2 lines total." },
+              contextUsage: { type: Type.STRING, description: "Brief usage in China. Be very concise." },
+              contextExamples: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING },
+                    pinyin: { type: Type.STRING },
+                    translation: { type: Type.STRING }
+                  },
+                  required: ["text", "pinyin", "translation"]
+                }
+              }
+            },
+            required: ["originalText", "translatedText", "breakdown", "grammar", "contextUsage", "contextExamples"]
+          }
+        }
+      });
+    }
 
     const resultText = response.text || "{}";
     const cleanJson = resultText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();

@@ -180,6 +180,44 @@ const Scenarios: React.FC<ScenariosProps> = ({
         </button>
       </div>
 
+      {loading && !scenarioData && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12 mt-16 max-w-3xl mx-auto">
+          <div className="flex flex-col items-center gap-3 mb-12">
+            <div className="h-10 w-3/4 max-w-md bg-zinc-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
+            <div className="h-1 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full animate-pulse" />
+          </div>
+          <div className="relative before:absolute before:inset-0 before:ml-[1.125rem] before:h-full before:w-1 before:bg-zinc-100 dark:before:bg-zinc-800/50 pb-10">
+            {[1, 2, 3].map((idx) => (
+              <div key={idx} className="relative flex items-start gap-4 md:gap-6 mb-8">
+                <div className="flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full border-4 border-zinc-50 dark:border-zinc-950 bg-zinc-200 dark:bg-zinc-800 shrink-0 z-10 mt-4 animate-pulse"></div>
+                
+                <div className="flex-1 bg-white dark:bg-zinc-900 p-4 md:p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+                  <div className="flex justify-end mb-6 gap-2">
+                    <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl animate-pulse"></div>
+                    <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl animate-pulse"></div>
+                  </div>
+                  
+                  <div className="mb-6 flex justify-center items-end gap-3 bg-zinc-50/50 dark:bg-zinc-950/50 py-8 px-4 rounded-3xl">
+                    <div className="w-12 h-16 bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-12 h-16 bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-12 h-16 bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-12 h-16 bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse" style={{ animationDelay: '450ms' }}></div>
+                    <div className="w-12 h-16 bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse" style={{ animationDelay: '600ms' }}></div>
+                  </div>
+                  
+                  <div className="h-px w-full bg-zinc-100 dark:bg-zinc-800 mb-6" />
+                  
+                  <div className="flex flex-col items-center gap-3 mb-4">
+                    <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse"></div>
+                    <div className="h-4 w-1/2 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {scenarioData && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
           <div className="flex flex-col items-center gap-3 mb-12">

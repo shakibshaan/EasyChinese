@@ -21,9 +21,9 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: "Text too long (max 200 chars)" });
     }
 
-    const apiKey = process.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("Backend: VITE_GEMINI_API_KEY is missing");
+      console.error("Backend: GEMINI_API_KEY is missing");
       return res.status(500).json({ success: false, error: "AI configuration error" });
     }
 

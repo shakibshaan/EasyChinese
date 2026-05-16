@@ -1,29 +1,157 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+import multer from "multer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function sanitizeInput(text: string): string {
+  if (!text) return text;
+  let sanitized = text.replace(/`/g, '');
+  sanitized = sanitized.replace(/system:/gi, '');
+  sanitized = sanitized.replace(/assistant:/gi, '');
+  sanitized = sanitized.replace(/user:/gi, '');
+  return sanitized.trim().slice(0, 200);
+}
+
+function isValidCacheEntry(data: any): boolean {
+  return (
+    typeof data.originalText === 'string' &&
+    typeof data.translatedText === 'string' &&
+    typeof data.grammar === 'string' &&
+    typeof data.contextUsage === 'string' &&
+    Array.isArray(data.breakdown) &&
+    Array.isArray(data.contextExamples) &&
+    data.originalText.length < 500 &&
+    data.translatedText.length < 500
+  );
+}
+
 async function startServer() {
   const app = express();
+  app.set("trust proxy", 1);
   const PORT = 3000;
 
-  app.use(express.json());
+  const corsOptions = {
+    origin: process.env.APP_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type'],
+  };
+  app.use(cors(corsOptions));
+
+  app.use(express.json({ limit: '10kb' }));
+
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { success: false, error: "Too many requests, please slow down." },
+    validate: { trustProxy: false, xForwardedForHeader: false }
+  });
+
+  app.use('/api/', apiLimiter);
+
+  const upload = multer({
+    limits: {
+      fileSize: 4 * 1024 * 1024,
+      files: 5
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        cb(new Error("Invalid file type"));
+      } else {
+        cb(null, true);
+      }
+    }
+  });
+
+  // Extract Text from images
+  app.post("/api/extract-text", (req, res) => {
+    upload.array('images', 5)(req, res, async (err) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ success: false, error: err.message });
+      } else if (err) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+
+      try {
+        if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
+          return res.status(400).json({ success: false, error: "No images provided" });
+        }
+
+        const files = req.files as Express.Multer.File[];
+        console.log(`Backend: Received ${files.length} images for extraction.`);
+        
+        const apiKey = process.env.EASY_API_KEY?.trim();
+        if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
+          return res.status(500).json({ success: false, error: "API key not configured in AI Studio Secrets" });
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+        
+        const parts: any[] = [
+          "You are a Chinese text extractor. Extract ONLY Chinese characters from this image. This is likely a screenshot of a Chinese video, movie, TV show, or social media. Focus on subtitle text at the bottom of the image, speech bubbles, or any Chinese text overlaid on the image. Return ONLY the extracted Chinese text with no explanation, no pinyin, no translation. If multiple lines exist, separate them with a newline. If no Chinese text is found, return exactly the string: NO_TEXT_FOUND"
+        ];
+
+        for (const file of files) {
+          parts.push({
+            inlineData: {
+              data: file.buffer.toString("base64"),
+              mimeType: file.mimetype
+            }
+          });
+        }
+
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: parts
+        });
+
+        let extractedText = response.text || "NO_TEXT_FOUND";
+        
+        if (extractedText.trim() === "NO_TEXT_FOUND") {
+          return res.json({ success: true, extractedText: "", imageCount: files.length });
+        }
+
+        let lines = extractedText.split('\n').map(l => l.replace(/<[^>]*>/g, '').trim()).filter(l => l !== "" && l !== "NO_TEXT_FOUND");
+        lines = Array.from(new Set(lines));
+        extractedText = lines.join('\n').slice(0, 2000);
+
+        res.json({ success: true, extractedText, imageCount: files.length });
+      } catch (error: any) {
+        console.error("Extraction error:", error);
+        
+        let errorMessage = "Extraction failed";
+        let statusCode = 500;
+        
+        if (error.message?.includes("429") || error.status === 429 || error.message?.includes("RESOURCE_EXHAUSTED")) {
+          errorMessage = "Gemini API quota exceeded. Please try again in a minute.";
+          statusCode = 429;
+        }
+        
+        res.status(statusCode).json({ success: false, error: errorMessage, details: String(error.message) });
+      }
+    });
+  });
 
   // Gemini Embedding Endpoint
   app.post("/api/embed", async (req, res) => {
     try {
-      const { text } = req.body;
+      let { text } = req.body;
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ success: false, error: "Text is required" });
       }
 
-      const apiKey = process.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ success: false, error: "AI configuration error" });
+      text = sanitizeInput(text);
+
+      const apiKey = process.env.EASY_API_KEY?.trim();
+      if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
+        return res.status(500).json({ success: false, error: "API key not configured in AI Studio Secrets" });
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -42,7 +170,7 @@ async function startServer() {
   // Gemini Proxy Endpoint
   app.post("/api/analyze", async (req, res) => {
     try {
-      const { text } = req.body;
+      let { text } = req.body;
 
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ success: false, error: "Text is required" });
@@ -52,20 +180,26 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Text too long (max 200 chars)" });
       }
 
-      const apiKey = process.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        console.error("Backend: VITE_GEMINI_API_KEY is missing");
-        return res.status(500).json({ success: false, error: "AI configuration error" });
+      text = sanitizeInput(text);
+
+      // Cache reading placeholder. Validate if using!
+      // const cacheEntry = await readFromGlobalSentenceCache(text);
+      // if (cacheEntry && isValidCacheEntry(cacheEntry)) { return res.json({ success: true, data: cacheEntry }); }
+
+      const apiKey = process.env.EASY_API_KEY?.trim();
+      if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
+        console.error("Backend: Valid EASY_API_KEY is missing. Currently set to:", apiKey);
+        return res.status(500).json({ success: false, error: "API key not configured in AI Studio Secrets" });
       }
 
+      console.log(`Backend: Initializing Gemini with API key length: ${apiKey.length}`);
       const ai = new GoogleGenAI({ apiKey });
-      const trimmedText = text.trim();
 
       let response;
       try {
         response = await ai.models.generateContent({
           model: "gemini-3.1-flash-lite-preview",
-          contents: `Analyze: "${trimmedText}"`,
+          contents: `Analyze: "${text}"`,
           config: {
             systemInstruction: `You are a Chinese language learning assistant. Analyze the sentence and return JSON:
 {
@@ -139,10 +273,10 @@ Rules:
           }
         });
       } catch (error) {
-        console.warn("Primary model (gemini-3.1-flash-lite-preview) failed, falling back to gemini-2.0-flash:", error);
+        console.warn("Primary model failed, falling back to gemini-2.0-flash:", error);
         response = await ai.models.generateContent({
           model: "gemini-2.0-flash",
-          contents: `Analyze: "${trimmedText}"`,
+          contents: `Analyze: "${text}"`,
           config: {
             systemInstruction: `You are a Chinese language learning assistant. Analyze the sentence and return JSON:
 {
@@ -238,9 +372,17 @@ Rules:
         }
       }
 
-      res.status(500).json({ 
+      let statusCode = 500;
+      let errorMessage = "AI request failed";
+      
+      if (errorDetails.includes("429") || error.status === 429 || errorDetails.includes("RESOURCE_EXHAUSTED")) {
+        errorMessage = "Gemini API quota exceeded. Please try again in a minute.";
+        statusCode = 429;
+      }
+
+      res.status(statusCode).json({ 
         success: false, 
-        error: "AI request failed",
+        error: errorMessage,
         details: errorDetails
       });
     }
@@ -249,11 +391,17 @@ Rules:
   // Scenario Endpoint
   app.post("/api/scenario/stream", async (req, res) => {
     try {
-      const { scenario, isContinuation, previousSentences } = req.body;
+      let { scenario, isContinuation, previousSentences } = req.body;
 
       if (!scenario || typeof scenario !== 'string') {
         return res.status(400).json({ success: false, error: "Scenario is required" });
       }
+
+      if (scenario.length > 200) {
+        return res.status(400).json({ success: false, error: "Scenario too long (max 200 chars)" });
+      }
+
+      scenario = sanitizeInput(scenario);
 
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -261,14 +409,21 @@ Rules:
         'Connection': 'keep-alive',
       });
 
-      const apiKey = process.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        res.write(`data: {"error": "AI configuration error"}\n\n`);
+      const timeoutId = setTimeout(() => {
+        res.write(`data: {"error": "Request timeout"}\n\n`);
+        res.end();
+      }, 30000);
+
+      req.on('close', () => clearTimeout(timeoutId));
+
+      const apiKey = process.env.EASY_API_KEY?.trim();
+      if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
+        clearTimeout(timeoutId);
+        res.write(`data: {"error": "API key not configured in AI Studio Secrets"}\n\n`);
         return res.end();
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const trimmedScenario = scenario.trim();
 
       let instruction = `You are a Chinese language learning assistant. Generate a realistic timeline of sentences for a given scenario.
 CRITICAL: Do NOT use formal "textbook" Chinese. Use highly authentic, natural, colloquial, and "local" spoken Chinese exactly as native speakers say it in real life (e.g., using natural phrasing, common local idioms, or colloquial sentence structures).
@@ -299,10 +454,10 @@ Rules:
 3. Language MUST be authentic, casual, and local everyday spoken Chinese, avoiding rigid or overly formal textbook phrases.
 4. Provide a word-by-word breakdown for important words in the sentence.`;
 
-      let contents = `Scenario: "${trimmedScenario}"`;
+      let contents = `Scenario: "${scenario}"`;
       if (isContinuation && previousSentences) {
         instruction += `\n\nThis is a continuation of a scenario. Here are the previous sentences:\n${JSON.stringify(previousSentences)}. \n\nProvide 3 or 4 MORE sentences that logically follow the previous ones.`;
-        contents = `Scenario: "${trimmedScenario}"\nProvide 3 or 4 MORE sentences that logically follow the previous ones.`;
+        contents = `Scenario: "${scenario}"\nProvide 3 or 4 MORE sentences that logically follow the previous ones.`;
       }
 
       const getScenarioConfig = (modelName: string): any => ({
@@ -372,6 +527,7 @@ Rules:
           res.write(`data: ${data}\n\n`);
         }
       }
+      clearTimeout(timeoutId);
       res.write(`data: [DONE]\n\n`);
       res.end();
     } catch (error: any) {

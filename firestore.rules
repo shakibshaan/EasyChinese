@@ -112,7 +112,9 @@ service cloud.firestore {
     // We allow anyone to write to the cache so that new sentences are cached for everyone.
     match /global_sentence_cache/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow create: if true;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
   }
 }

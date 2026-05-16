@@ -31,7 +31,8 @@ import {
   Info,
   Sun,
   Moon,
-  Sparkles
+  Sparkles,
+  Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
@@ -43,6 +44,7 @@ import ReactMarkdown from 'react-markdown';
 import { Toaster, toast } from 'sonner';
 
 import Scenarios from './components/Scenarios';
+import { ScreenshotAnalyzer } from './components/ScreenshotAnalyzer';
 
 // --- Types ---
 interface SavedSentence extends SentenceAnalysis {
@@ -1161,7 +1163,7 @@ interface SidebarProps {
   isBootstrapping: boolean;
   flashcards: FlashcardData[];
   setFlashcardIndex: (index: number) => void;
-  setViewMode: (mode: 'analysis' | 'flashcards' | 'test' | 'results' | 'scenarios') => void;
+  setViewMode: (mode: 'analysis' | 'flashcards' | 'test' | 'results' | 'scenarios' | 'screenshots') => void;
   setIsSidebarOpen: (open: boolean) => void;
   isAddingFolder: boolean;
   setIsAddingFolder: (adding: boolean) => void;
@@ -1302,7 +1304,7 @@ const SidebarContent = ({
           </div>
         </div>
 
-      <div className="px-4 mt-2">
+      <div className="px-4 mt-2 space-y-2">
         <button
           onClick={() => {
             setViewMode('scenarios');
@@ -1315,6 +1317,19 @@ const SidebarContent = ({
           </div>
           Scenarios
           <span className="ml-auto text-[10px] uppercase font-bold py-1 px-2 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">New</span>
+        </button>
+        <button
+          onClick={() => {
+            setViewMode('screenshots');
+            setIsSidebarOpen(false);
+          }}
+          className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-500/10 to-violet-500/10 hover:from-purple-500/20 hover:to-violet-500/20 border border-purple-500/20 rounded-2xl text-purple-600 dark:text-purple-400 font-bold transition-all shadow-sm"
+        >
+          <div className="p-2 bg-purple-500 text-white rounded-xl shadow-md shadow-purple-500/20">
+            <Camera size={18} />
+          </div>
+          Screenshot Analyzer
+          <span className="ml-auto text-[10px] uppercase font-bold py-1 px-2 bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 rounded-full">AI Vision</span>
         </button>
       </div>
 
@@ -1689,7 +1704,7 @@ function App() {
   const [isLibraryView, setIsLibraryView] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'analysis' | 'flashcards' | 'test' | 'results' | 'scenarios'>('analysis');
+  const [viewMode, setViewMode] = useState<'analysis' | 'flashcards' | 'test' | 'results' | 'scenarios' | 'screenshots'>('analysis');
   const [testMode, setTestMode] = useState<'flashcard' | 'mcq'>('flashcard');
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [pinyinMode, setPinyinMode] = useState(false);
@@ -3787,6 +3802,15 @@ return (
                     user={user}
                     setIsAuthModalOpen={setIsAuthModalOpen}
                     renderTokenizedText={renderTokenizedText}
+                  />
+                </motion.div>
+              ) : viewMode === 'screenshots' ? (
+                <motion.div key="screenshots" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full overflow-y-auto w-full pb-24 px-2 sm:px-4 md:px-0 scrollbar-hide">
+                  <ScreenshotAnalyzer 
+                    user={user}
+                    onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                    renderTokenizedText={renderTokenizedText}
+                    theme={theme}
                   />
                 </motion.div>
               ) : viewMode === 'results' ? (

@@ -98,7 +98,7 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
   }, [images]);
 
   const compressImage = (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -106,7 +106,7 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = 1600;
+          const maxDim = 1000;
           
           if (width > height && width > maxDim) {
             height = Math.round((height * maxDim) / width);
@@ -128,7 +128,7 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
             } else {
               resolve(file); // Fallback to original
             }
-          }, 'image/jpeg', 0.85); // Compress to 85% JPEG
+          }, 'image/jpeg', 0.6); // Compress to 60% JPEG for much smaller payload
         };
         img.onerror = () => resolve(file);
         img.src = event.target?.result as string;
@@ -179,9 +179,17 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
         body: formData
       });
 
-      const data = await res.json();
+      let data;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await res.json();
+      } else {
+        const textResponse = await res.text();
+        throw new Error(`Server error (${res.status}): ${textResponse.slice(0, 100) || "Empty response from server"}`);
+      }
+
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to extract text");
+        throw new Error(data.error || `Failed to extract text: ${res.status}`);
       }
 
       const text = data.extractedText || '';

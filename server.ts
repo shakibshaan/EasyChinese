@@ -35,7 +35,7 @@ async function startServer() {
 
   const corsOptions = {
     origin: process.env.APP_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type'],
   };
   app.use(cors(corsOptions));

@@ -63,6 +63,7 @@ const Scenarios: React.FC<ScenariosProps> = ({
     try {
       const response = await fetch('/api/scenario/stream', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           scenario: scenarioInput,

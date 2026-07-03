@@ -2,8 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
-import { Camera, Image as ImageIcon, X, Plus, Loader2, Bookmark, ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { Camera, Image as ImageIcon, X, Plus, Loader2, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
+import { cn, playAudio } from '../lib/utils';
 import { SentenceAnalysis, SentenceToken, analyzeSentence } from '../services/geminiService';
 
 interface ScreenshotAnalyzerProps {
@@ -20,9 +20,12 @@ interface ScreenshotAnalyzerProps {
   ) => React.ReactNode;
   theme: 'dark' | 'light';
   onSaveToLibrary: (analysis: SentenceAnalysis) => void;
+  savedSentences: { id: string; originalText: string; folderId: string; }[];
+  flashcards: any[];
+  handleSaveWord: (word: any) => void;
 }
 
-export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText, theme, onSaveToLibrary }: ScreenshotAnalyzerProps) {
+export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText, theme, onSaveToLibrary, savedSentences, flashcards, handleSaveWord }: ScreenshotAnalyzerProps) {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -178,6 +181,7 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
 
       const res = await fetch('/api/extract-text', {
         method: 'POST',
+        credentials: 'include',
         body: formData
       });
 
@@ -455,37 +459,57 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
           <h3 className="text-lg font-bold text-zinc-900 dark:text-white px-2">Analysis Results</h3>
           
           <div className="space-y-6">
-            {analysisResults.map((analysis, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 p-6 md:p-8 shadow-sm"
-              >
-                 <div className="flex justify-between items-start mb-6">
-                   <div className="w-full text-left">
-                      {renderTokenizedText(analysis.originalText, analysis.tokens, analysis.pinyin, true, true, analysisResults.length === 1 ? 'lg' : 'scenario')}
-                   </div>
-                   <button 
-                     onClick={() => handleSaveClick(analysis)}
-                     className="shrink-0 ml-4 p-2.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-indigo-500 transition-colors"
-                   >
-                     <Bookmark size={20} strokeWidth={2} />
-                   </button>
-                 </div>
+            {analysisResults.map((analysis, index) => {
+              const isSaved = savedSentences.some(s => s.originalText === analysis.originalText);
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="flex-1 min-w-0 bg-white dark:bg-zinc-900 p-4 md:p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 transition-all md:group-hover:-translate-y-1"
+                >
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex gap-2 w-full justify-end">
+                      <button 
+                        onClick={() => playAudio(analysis.originalText)}
+                        className="p-2.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-colors"
+                      >
+                        <Volume2 size={20} />
+                      </button>
+                      <button 
+                        onClick={() => handleSaveClick(analysis)}
+                        className={cn(
+                          "p-2.5 rounded-xl transition-colors",
+                          isSaved 
+                            ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30" 
+                            : "text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                        )}
+                      >
+                        {isSaved ? <CheckCircle2 size={20} /> : <BookmarkPlus size={20} />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Render text with tokens */}
+                  <div className="mb-6 flex justify-center bg-zinc-50/50 dark:bg-zinc-950/50 py-6 px-4 rounded-3xl overflow-x-auto">
+                    {renderTokenizedText(analysis.originalText, analysis.tokens, analysis.pinyin, true, true, analysisResults.length === 1 ? 'lg' : 'scenario')}
+                  </div>
+                  
+                  <div className="h-px w-full bg-zinc-100 dark:bg-zinc-800 mb-6" />
+                  
+                  <p className="text-zinc-700 dark:text-zinc-300 text-lg leading-relaxed text-center font-medium mb-8">
+                    "{analysis.translatedText}"
+                  </p>
 
-                 <p className="text-base text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed mb-6">
-                   {analysis.translatedText}
-                 </p>
-
-                 <div className="bg-zinc-50 dark:bg-zinc-950 rounded-2xl overflow-hidden mt-6">
+                  <div className="bg-zinc-50 dark:bg-zinc-950 rounded-2xl overflow-hidden mt-6 border border-zinc-100 dark:border-zinc-800/50">
                     <button 
                       onClick={() => toggleBreakdown(index)}
                       className="w-full flex items-center justify-between p-4 px-5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                         Breakdown & Grammar
+                         Breakdown & Context
                          <span className="px-2 py-0.5 rounded-full bg-zinc-200/50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs">
                            {analysis.breakdown.length} words
                          </span>
@@ -504,37 +528,54 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
                            <div className="p-5 pt-0 border-t border-zinc-100 dark:border-zinc-800/50 space-y-6">
                              
                              <div className="space-y-3 mt-4">
-                                {analysis.breakdown.map((word, wIdx) => (
-                                  <div key={wIdx} className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 p-3 rounded-xl hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50 transition-colors">
-                                    <div className="sm:w-1/3 flex items-baseline gap-2 shrink-0">
-                                      <span className="text-lg font-medium text-zinc-900 dark:text-white">{word.word}</span>
-                                      <span className="text-sm text-indigo-600 dark:text-indigo-400">{word.pinyin}</span>
-                                    </div>
-                                    <div className="sm:w-2/3">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="font-medium text-zinc-800 dark:text-zinc-200">{word.translation}</span>
-                                        {word.pos && <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">{word.pos}</span>}
+                                {analysis.breakdown.map((word, wIdx) => {
+                                  const isWordSaved = flashcards?.some(c => c.word === word.word);
+                                  
+                                  return (
+                                    <div key={wIdx} className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 p-3 rounded-xl hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50 transition-colors">
+                                      <div className="sm:w-1/3 shrink-0 flex items-center gap-2">
+                                        <span className="text-lg font-serif font-bold text-zinc-900 dark:text-white">{word.word}</span>
+                                        <button 
+                                          onClick={() => playAudio(word.word)}
+                                          className="text-zinc-400 hover:text-blue-600 transition-colors"
+                                          title="Play pronunciation"
+                                        >
+                                          <Volume2 size={16} />
+                                        </button>
                                       </div>
-                                      <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-snug">{word.definition}</p>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-baseline gap-2 flex-wrap mb-1">
+                                          <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">{word.pinyin}</span>
+                                          {word.pos && <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium tracking-wide uppercase">{word.pos}</span>}
+                                        </div>
+                                        <p className="text-sm text-zinc-800 dark:text-zinc-200 font-medium mb-1">{word.translation}</p>
+                                        <p className="text-xs text-zinc-500 leading-relaxed">{word.definition}</p>
+                                      </div>
+                                      <div className="shrink-0 sm:self-center mt-2 sm:mt-0">
+                                        <button 
+                                          onClick={() => handleSaveWord(word)}
+                                          className={cn(
+                                            "p-2 rounded-xl transition-all shadow-sm",
+                                            isWordSaved 
+                                              ? "text-green-500 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
+                                              : "text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-transparent hover:border-blue-100 dark:hover:border-blue-800"
+                                          )}
+                                          title={isWordSaved ? "Remove from Flashcards" : "Save to Flashcards"}
+                                        >
+                                          {isWordSaved ? <CheckCircle2 size={14} /> : <BookmarkPlus size={14} />}
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                              </div>
 
-                             {(analysis.grammar || analysis.contextUsage) && (
+                             {analysis.contextUsage && (
                                 <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
-                                   {analysis.grammar && (
-                                     <div>
-                                        <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Grammar</h4>
-                                        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed bg-indigo-50/50 dark:bg-indigo-900/10 p-3 rounded-xl">{analysis.grammar}</p>
-                                     </div>
-                                   )}
-                                   {analysis.contextUsage && (
-                                     <div>
-                                       <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Context Usage</h4>
-                                       <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed bg-emerald-50/50 dark:bg-emerald-900/10 p-3 rounded-xl">{analysis.contextUsage}</p>
-                                     </div>
-                                   )}
+                                   <div>
+                                     <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Context Usage</h4>
+                                     <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed bg-emerald-50/50 dark:bg-emerald-900/10 p-3 rounded-xl">{analysis.contextUsage}</p>
+                                   </div>
                                 </div>
                              )}
 
@@ -544,7 +585,8 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
                     </AnimatePresence>
                  </div>
               </motion.div>
-            ))}
+            );
+          })}
           </div>
         </section>
       )}

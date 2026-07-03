@@ -19,7 +19,6 @@ function isValidCacheEntry(data: any): boolean {
   return (
     typeof data.originalText === 'string' &&
     typeof data.translatedText === 'string' &&
-    typeof data.grammar === 'string' &&
     typeof data.contextUsage === 'string' &&
     Array.isArray(data.breakdown) &&
     Array.isArray(data.contextExamples) &&
@@ -205,13 +204,12 @@ async function startServer() {
   "educationalConfidenceScore": number (0-100, deduct for ambiguity),
   "tokens": [{"text": "string", "pinyin": "string"}],
   "breakdown": [{"word": "string", "pinyin": "string", "translation": "string", "pos": "string", "definition": "string", "context": "string"}],
-  "grammar": "string (concise structure + explanation)",
   "contextUsage": "string (concise China usage)",
   "contextExamples": [{"text": "string", "pinyin": "string", "translation": "string"}]
 }
 Rules:
 1. Tokens must match original text exactly.
-2. Grammar/Context must be extremely concise.
+2. Context must be extremely concise.
 3. Confidence < 85 if ambiguous or multiple meanings.
 4. You MUST provide exactly two items in contextExamples.`,
             temperature: 0.1,
@@ -249,7 +247,6 @@ Rules:
                     required: ["word", "translation", "definition"]
                   }
                 },
-                grammar: { type: Type.STRING },
                 contextUsage: { type: Type.STRING },
                 contextExamples: {
                   type: Type.ARRAY,
@@ -264,7 +261,7 @@ Rules:
                   }
                 }
               },
-              required: ["originalText", "translatedText", "pinyin", "tokens", "breakdown", "grammar", "contextUsage", "contextExamples", "educationalConfidenceScore"]
+              required: ["originalText", "translatedText", "pinyin", "tokens", "breakdown", "contextUsage", "contextExamples", "educationalConfidenceScore"]
             }
           }
         });
@@ -282,13 +279,12 @@ Rules:
   "educationalConfidenceScore": number (0-100, deduct for ambiguity),
   "tokens": [{"text": "string", "pinyin": "string"}],
   "breakdown": [{"word": "string", "pinyin": "string", "translation": "string", "pos": "string", "definition": "string", "context": "string"}],
-  "grammar": "string (concise structure + explanation)",
   "contextUsage": "string (concise China usage)",
   "contextExamples": [{"text": "string", "pinyin": "string", "translation": "string"}]
 }
 Rules:
 1. Tokens must match original text exactly.
-2. Grammar/Context must be extremely concise.
+2. Context must be extremely concise.
 3. Confidence < 85 if ambiguous or multiple meanings.
 4. You MUST provide exactly two items in contextExamples.`,
             temperature: 0.1,
@@ -326,7 +322,6 @@ Rules:
                     required: ["word", "translation", "definition"]
                   }
                 },
-                grammar: { type: Type.STRING },
                 contextUsage: { type: Type.STRING },
                 contextExamples: {
                   type: Type.ARRAY,
@@ -341,7 +336,7 @@ Rules:
                   }
                 }
               },
-              required: ["originalText", "translatedText", "pinyin", "tokens", "breakdown", "grammar", "contextUsage", "contextExamples", "educationalConfidenceScore"]
+              required: ["originalText", "translatedText", "pinyin", "tokens", "breakdown", "contextUsage", "contextExamples", "educationalConfidenceScore"]
             }
           }
         });

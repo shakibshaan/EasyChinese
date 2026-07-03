@@ -25,7 +25,6 @@ export interface SentenceAnalysis {
   educationalConfidenceScore?: number;
   tokens?: SentenceToken[];
   breakdown: WordBreakdown[];
-  grammar: string;
   contextUsage: string;
   contextExamples: ContextExample[];
 }
@@ -33,6 +32,7 @@ export interface SentenceAnalysis {
 export async function analyzeSentence(text: string): Promise<SentenceAnalysis> {
   const response = await fetch('/api/analyze', {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },

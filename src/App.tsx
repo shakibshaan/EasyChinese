@@ -3846,6 +3846,9 @@ return (
                     onOpenAuthModal={() => setIsAuthModalOpen(true)}
                     renderTokenizedText={renderTokenizedText}
                     theme={theme}
+                    savedSentences={savedSentences}
+                    flashcards={flashcards}
+                    handleSaveWord={handleSaveWord}
                     onSaveToLibrary={(analysis) => {
                       if (!user) {
                         setIsAuthModalOpen(true);

@@ -45,6 +45,7 @@ import { Toaster, toast } from 'sonner';
 
 import Scenarios from './components/Scenarios';
 import { ScreenshotAnalyzer } from './components/ScreenshotAnalyzer';
+import { hsk1CsvData } from './data/hsk1Data';
 
 // --- Types ---
 interface SavedSentence extends SentenceAnalysis {
@@ -2526,6 +2527,40 @@ function App() {
 
         await addDoc(collection(db, 'system_content'), {
           folderId: subId,
+          words
+        });
+      }
+
+      // Check if "HSK 1" exists
+      const hsk1Sub = systemFolders.find(f => f.name === "HSK 1" && f.parentId === rootId);
+      let subIdHsk1 = hsk1Sub?.id;
+
+      if (!subIdHsk1) {
+        const docRef = await addDoc(collection(db, 'system_folders'), {
+          name: "HSK 1",
+          parentId: rootId,
+          createdAt: serverTimestamp()
+        });
+        subIdHsk1 = docRef.id;
+      }
+
+      // Check if content exists for "HSK 1"
+      const existingContentHsk1 = systemContent.find(c => c.folderId === subIdHsk1);
+      if (!existingContentHsk1) {
+        const lines = hsk1CsvData.split('\n').filter(l => l.trim());
+        const words: SystemWord[] = lines.map(line => {
+          const parts = line.split(',');
+          return { 
+            lesson: parts[0] || "", 
+            word: parts[1] || "", 
+            pinyin: parts[2] || "", 
+            pos: parts[3] || "", 
+            meaning: parts.slice(4).join(',') || "" 
+          };
+        });
+
+        await addDoc(collection(db, 'system_content'), {
+          folderId: subIdHsk1,
           words
         });
       }

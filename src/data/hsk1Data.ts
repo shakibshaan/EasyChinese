@@ -1,0 +1,179 @@
+export const hsk1CsvData = `1,你好,nǐ hǎo,,hello
+1,你,nǐ,,you (singular)
+1,好,hǎo,,good, fine
+1,您,nín,,you (polite)
+1,你们,nǐmen,,you (plural)
+1,对不起,duìbuqǐ,,to be sorry
+1,没关系,méi guānxi,,that's OK, it doesn't matter
+2,谢谢,xièxie,,to thank
+2,不,bù,,no, not
+2,不客气,bú kèqi,,you're welcome, don't mention it
+2,再见,zàijiàn,,to see you around, goodbye
+3,叫,jiào,,to call, to be called
+3,什么,shénme,,what
+3,名字,míngzi,,name
+3,我,wǒ,,I, me
+3,是,shì,,to be
+3,老师,lǎoshī,,teacher
+3,吗,ma,,question particle (used at end of questions)
+3,学生,xuésheng,,student
+3,人,rén,,human, person
+3,中国,Zhōngguó,,China
+3,美国,Měiguó,,United States of America
+4,她,tā,,she, her
+4,谁,shéi,,who, whom
+4,的,de,,possessive particle ('s)
+4,汉语,Hànyǔ,,Chinese (language)
+4,哪,nǎ,,which
+4,国,guó,,country, nation
+4,呢,ne,,interrogative particle
+4,他,tā,,he, him
+4,同学,tóngxué,,classmate
+4,朋友,péngyou,,friend
+5,家,jiā,,family
+5,有,yǒu,,to have, there be
+5,口,kǒu,,measure word for family members
+5,女儿,nǚ'ér,,daughter
+5,几,jǐ,,how many
+5,岁,suì,,year (of age)
+5,了,le,,change particle (indicates change or new situation)
+5,今年,jīnnián,,this year
+5,多,duō,,degree/extent (how)
+5,大,dà,,old (of age), big
+5,一,yī,,one
+5,二,èr,,two
+5,三,sān,,three
+5,四,sì,,four
+5,五,wǔ,,five
+5,六,liù,,six
+5,七,qī,,seven
+5,八,bā,,eight
+5,九,jiǔ,,nine
+5,十,shí,,ten
+6,会,huì,,can, to be able to
+6,说,shuō,,to speak, to say
+6,妈妈,māma,,mother
+6,菜,cài,,dish, cuisine
+6,很,hěn,,very, quite
+6,好吃,hǎochī,,delicious, tasty
+6,做,zuò,,to make, to produce
+6,写,xiě,,to write
+6,汉字,Hànzì,,Chinese character
+6,字,zì,,character, word
+6,怎么,zěnme,,how
+6,读,dú,,to read
+7,请,qǐng,,please (polite)
+7,问,wèn,,to ask, to inquire
+7,今天,jīntiān,,today
+7,号,hào,,date (number), day of month
+7,月,yuè,,month
+7,星期,xīngqī,,week, day of week
+7,昨天,zuótiān,,yesterday
+7,明天,míngtiān,,tomorrow
+7,去,qù,,to go
+7,学校,xuéxiào,,school
+7,看,kàn,,to look at, to watch, to read
+7,书,shū,,book
+8,想,xiǎng,,to want, would like
+8,喝,hē,,to drink
+8,茶,chá,,tea
+8,吃,chī,,to eat
+8,米饭,mǐfàn,,cooked rice
+8,下午,xiàwǔ,,afternoon
+8,商店,shāngdiàn,,shop, store
+8,买,mǎi,,to buy, to purchase
+8,个,gè,,general measure word
+8,杯子,bēizi,,cup, glass
+8,这,zhè,,this
+8,多少,duōshao,,how many, how much
+8,钱,qián,,money
+8,块,kuài,,unit of money (yuan)
+8,那,nà,,that
+9,小,xiǎo,,small, little
+9,猫,māo,,cat
+9,在,zài,,to be in/on/at; in/on/at
+9,那儿,nàr,,there
+9,狗,gǒu,,dog
+9,椅子,yǐzi,,chair
+9,下面,xiàmiàn,,under, below
+9,哪儿,nǎr,,where
+9,工作,gōngzuò,,to work; job
+9,儿子,érzi,,son
+9,医院,yīyuàn,,hospital
+9,医生,yīshēng,,doctor
+9,爸爸,bàba,,father
+10,桌子,zhuōzi,,desk, table
+10,上,shàng,,up, above, on
+10,电脑,diànnǎo,,computer
+10,和,hé,,and
+10,本,běn,,measure word for books
+10,里,lǐ,,inner, inside, interior
+10,前面,qiánmiàn,,front
+10,后面,hòumiàn,,back
+10,这儿,zhèr,,here
+10,没有,méiyǒu,,there is not, to not have
+10,能,néng,,can, may
+10,坐,zuò,,to sit, to be seated
+11,现在,xiànzài,,now
+11,点,diǎn,,o'clock
+11,分,fēn,,minute
+11,中午,zhōngwǔ,,noon
+11,吃饭,chī fàn,,to eat a meal
+11,时候,shíhou,,time, moment
+11,回,huí,,to come/go back, to return
+11,我们,wǒmen,,we, us
+11,电影,diànyǐng,,film, movie
+11,住,zhù,,to live, to stay
+11,前,qián,,before, earlier than
+11,北京,Běijīng,,Beijing
+12,天气,tiānqì,,weather
+12,怎么样,zěnmeyàng,,how (indicating condition)
+12,太,tài,,too, excessively
+12,热,rè,,hot
+12,冷,lěng,,cold
+12,下雨,xià yǔ,,to rain
+12,小姐,xiǎojiě,,miss, young lady
+12,来,lái,,to come
+12,身体,shēntǐ,,body
+12,爱,ài,,to like, to love
+12,些,xiē,,some, a few
+12,水果,shuǐguǒ,,fruit
+12,水,shuǐ,,water
+13,喂,wèi,,hello, hey (on phone)
+13,也,yě,,also, too
+13,学习,xuéxí,,to study, to learn
+13,上午,shàngwǔ,,morning, before noon
+13,睡觉,shuì jiào,,to sleep
+13,电视,diànshì,,television
+13,喜欢,xǐhuān,,to like, to be fond of
+13,给,gěi,,to (preposition)
+13,打电话,dǎ diànhuà,,to make a phone call
+13,吧,ba,,suggestion particle
+13,大卫,Dàwèi,,David
+14,东西,dōngxi,,thing, stuff
+14,一点儿,yīdiǎnr,,a few, a little
+14,苹果,píngguǒ,,apple
+14,看见,kànjiàn,,to see
+14,先生,xiānsheng,,Mr., sir
+14,开,kāi,,to drive
+14,车,chē,,car, vehicle
+14,回来,huílái,,to come back
+14,分钟,fēnzhōng,,minute
+14,后,hòu,,after, afterwards, later
+14,衣服,yīfu,,clothes
+14,漂亮,piàoliang,,beautiful, pretty
+14,啊,a,,modal particle (confirmation)
+14,少,shǎo,,little, few
+14,不少,bùshǎo,,quite a few, many
+14,这些,zhèxiē,,these
+14,都,dōu,,both, all
+14,张,Zhāng,,Zhang (family name)
+15,认识,rènshi,,to meet, to know
+15,年,nián,,year
+15,大学,dàxué,,college, university
+15,饭店,fàndiàn,,hotel, restaurant
+15,出租车,chūzūchē,,taxi, cab
+15,一起,yìqǐ,,together
+15,高兴,gāoxìng,,glad, happy
+15,听,tīng,,to listen
+15,飞机,fēijī,,airplane`;

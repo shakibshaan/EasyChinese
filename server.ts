@@ -1,14 +1,10 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 function sanitizeInput(text: string): string {
   if (!text) return text;
@@ -44,7 +40,7 @@ async function startServer() {
   };
   app.use(cors(corsOptions));
 
-  app.use(express.json({ limit: '10kb' }));
+  app.use(express.json({ limit: '10mb' }));
 
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,

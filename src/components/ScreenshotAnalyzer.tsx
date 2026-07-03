@@ -19,9 +19,10 @@ interface ScreenshotAnalyzerProps {
     isLibrary?: boolean
   ) => React.ReactNode;
   theme: 'dark' | 'light';
+  onSaveToLibrary: (analysis: SentenceAnalysis) => void;
 }
 
-export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText, theme }: ScreenshotAnalyzerProps) {
+export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText, theme, onSaveToLibrary }: ScreenshotAnalyzerProps) {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -33,6 +34,7 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
   const [openBreakdowns, setOpenBreakdowns] = useState<Record<number, boolean>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -267,12 +269,11 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
     }));
   };
 
-  const handleSaveClick = () => {
+  const handleSaveClick = (analysis: SentenceAnalysis) => {
     if (!user) {
       onOpenAuthModal();
     } else {
-      toast.success("Saved to library! (Placeholder)");
-      // Note: Actual saving logic would go here depending on the DB schema
+      onSaveToLibrary(analysis);
     }
   };
 
@@ -286,12 +287,11 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
         </label>
         
         <div 
-          onClick={() => fileInputRef.current?.click()}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "relative w-full overflow-hidden transition-all duration-300 rounded-3xl cursor-pointer border-2 border-dashed flex flex-col items-center justify-center min-h-[200px] p-6",
+            "relative w-full overflow-hidden transition-all duration-300 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center min-h-[200px] p-6",
             images.length > 0 ? "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50" : "bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-indigo-400 dark:hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20",
             isDraggingOver && "border-indigo-500 bg-indigo-50/50 dark:border-indigo-400 dark:bg-indigo-900/20",
           )}
@@ -304,14 +304,35 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
             accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={handleFileInputChange}
           />
+          <input 
+            type="file" 
+            ref={cameraInputRef} 
+            className="hidden" 
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            capture="environment"
+            onChange={handleFileInputChange}
+          />
           
           {images.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400 flex items-center justify-center">
-                <Camera size={32} strokeWidth={1.5} />
+              <div className="flex gap-4">
+                <div 
+                  className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400 flex flex-col items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }}
+                >
+                  <Camera size={28} strokeWidth={1.5} />
+                  <span className="text-[10px] font-medium mt-1 uppercase tracking-wider">Camera</span>
+                </div>
+                <div 
+                  className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400 flex flex-col items-center justify-center hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                >
+                  <ImageIcon size={28} strokeWidth={1.5} />
+                  <span className="text-[10px] font-medium mt-1 uppercase tracking-wider">Gallery</span>
+                </div>
               </div>
               <div>
-                <p className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Drop screenshots here</p>
+                <p className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Take photo or drop images</p>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Up to 5 images • JPG, PNG, WebP</p>
               </div>
             </div>
@@ -447,7 +468,7 @@ export function ScreenshotAnalyzer({ user, onOpenAuthModal, renderTokenizedText,
                       {renderTokenizedText(analysis.originalText, analysis.tokens, analysis.pinyin, true, true, analysisResults.length === 1 ? 'lg' : 'scenario')}
                    </div>
                    <button 
-                     onClick={handleSaveClick}
+                     onClick={() => handleSaveClick(analysis)}
                      className="shrink-0 ml-4 p-2.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-indigo-500 transition-colors"
                    >
                      <Bookmark size={20} strokeWidth={2} />

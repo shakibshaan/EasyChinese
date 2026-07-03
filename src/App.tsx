@@ -3846,6 +3846,15 @@ return (
                     onOpenAuthModal={() => setIsAuthModalOpen(true)}
                     renderTokenizedText={renderTokenizedText}
                     theme={theme}
+                    onSaveToLibrary={(analysis) => {
+                      if (!user) {
+                        setIsAuthModalOpen(true);
+                        return;
+                      }
+                      const savedIn = savedSentences.filter(s => s.originalText === analysis.originalText).map(s => s.folderId);
+                      setItemToSave({ type: 'sentence', data: analysis, savedInFolders: savedIn });
+                      setIsFolderSelectOpen(true);
+                    }}
                   />
                 </motion.div>
               ) : viewMode === 'results' ? (

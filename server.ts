@@ -83,7 +83,7 @@ async function startServer() {
         const files = req.files as Express.Multer.File[];
         console.log(`Backend: Received ${files.length} images for extraction.`);
         
-        const apiKey = process.env.EASY_API_KEY?.trim();
+        const apiKey = process.env.GEMINI_API_KEY?.trim();
         if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
           return res.status(500).json({ success: false, error: "API key not configured in AI Studio Secrets" });
         }
@@ -145,7 +145,7 @@ async function startServer() {
 
       text = sanitizeInput(text);
 
-      const apiKey = process.env.EASY_API_KEY?.trim();
+      const apiKey = process.env.GEMINI_API_KEY?.trim();
       if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
         return res.status(500).json({ success: false, error: "API key not configured in AI Studio Secrets" });
       }
@@ -182,9 +182,9 @@ async function startServer() {
       // const cacheEntry = await readFromGlobalSentenceCache(text);
       // if (cacheEntry && isValidCacheEntry(cacheEntry)) { return res.json({ success: true, data: cacheEntry }); }
 
-      const apiKey = process.env.EASY_API_KEY?.trim();
+      const apiKey = process.env.GEMINI_API_KEY?.trim();
       if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
-        console.error("Backend: Valid EASY_API_KEY is missing. Currently set to:", apiKey);
+        console.error("Backend: Valid GEMINI_API_KEY is missing. Currently set to:", apiKey);
         return res.status(500).json({ success: false, error: "API key not configured in AI Studio Secrets" });
       }
 
@@ -412,7 +412,7 @@ Rules:
 
       req.on('close', () => clearTimeout(timeoutId));
 
-      const apiKey = process.env.EASY_API_KEY?.trim();
+      const apiKey = process.env.GEMINI_API_KEY?.trim();
       if (!apiKey || apiKey === "your_api_key_here" || apiKey.includes("MY_GEMINI_API_KEY")) {
         clearTimeout(timeoutId);
         res.write(`data: {"error": "API key not configured in AI Studio Secrets"}\n\n`);

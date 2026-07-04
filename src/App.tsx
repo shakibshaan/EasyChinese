@@ -46,6 +46,7 @@ import { Toaster, toast } from 'sonner';
 import Scenarios from './components/Scenarios';
 import { ScreenshotAnalyzer } from './components/ScreenshotAnalyzer';
 import { hsk1CsvData } from './data/hsk1Data';
+import { hsk2CsvData } from './data/hsk2Data';
 
 // --- Types ---
 interface SavedSentence extends SentenceAnalysis {
@@ -2561,6 +2562,40 @@ function App() {
 
         await addDoc(collection(db, 'system_content'), {
           folderId: subIdHsk1,
+          words
+        });
+      }
+
+      // Check if "HSK 2" exists
+      const hsk2Sub = systemFolders.find(f => f.name === "HSK 2" && f.parentId === rootId);
+      let subIdHsk2 = hsk2Sub?.id;
+
+      if (!subIdHsk2) {
+        const docRef = await addDoc(collection(db, 'system_folders'), {
+          name: "HSK 2",
+          parentId: rootId,
+          createdAt: serverTimestamp()
+        });
+        subIdHsk2 = docRef.id;
+      }
+
+      // Check if content exists for "HSK 2"
+      const existingContentHsk2 = systemContent.find(c => c.folderId === subIdHsk2);
+      if (!existingContentHsk2) {
+        const lines = hsk2CsvData.split('\n').filter(l => l.trim());
+        const words: SystemWord[] = lines.map(line => {
+          const parts = line.split(',');
+          return { 
+            lesson: parts[0] || "", 
+            word: parts[1] || "", 
+            pinyin: parts[2] || "", 
+            pos: parts[3] || "", 
+            meaning: parts.slice(4).join(',') || "" 
+          };
+        });
+
+        await addDoc(collection(db, 'system_content'), {
+          folderId: subIdHsk2,
           words
         });
       }
